@@ -1,24 +1,55 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { ThemeProvider } from "@/hooks/theme/ThemeContext";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useFonts } from "expo-font";
+import { useTheme } from "@/hooks/theme/ThemeContext";
+import { LanguageProvider } from "@/hooks/language/LanguageContext";
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+function AppShell() {
+  const { colors, config } = useTheme();
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+  const [fontsLoaded, fontError] = useFonts({
+    SansFlex: require("../assets/fonts/SansFlex.ttf"),
+    NotoSerifBengali: require("../assets/fonts/NotoSerifBengali.ttf"),
+    Noto: require("../assets/fonts/Noto.ttf"),
+  });
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const isAppReady = Boolean(fontsLoaded && !fontError);
+
+  // optional: don’t render UI until fonts are ready
+  if (!isAppReady) return null;
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+    <>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.bodyBackground },
+        }}
+      >
+        {/* <Stack.Screen name="(tab)" />
+        <Stack.Screen
+          name="add"
+          options={{
+            presentation: "modal",
+            animation: "slide_from_bottom",
+            gestureEnabled: true,
+            headerShown: false,
+          }}
+        /> */}
       </Stack>
-      <StatusBar style="auto" />
+
+      <StatusBar style={config.style} backgroundColor={colors.bodyBackground} />
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <LanguageProvider>
+        <AppShell />
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

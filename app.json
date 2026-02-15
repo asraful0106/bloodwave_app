@@ -4,23 +4,24 @@
     "slug": "bloodwave",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/app_icon.png",
     "scheme": "bloodwave",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nextin.bloodwave"
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
+      // "adaptiveIcon": {
+      //   "backgroundColor": "#E6F4FE",
+      //   "foregroundImage": "./assets/images/android-icon-foreground.png",
+      //   "backgroundImage": "./assets/images/android-icon-background.png",
+      //   "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      // },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.bloodwave"
+      "package": "com.nextin.bloodwave"
     },
     "web": {
       "output": "static",
