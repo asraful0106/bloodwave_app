@@ -74,7 +74,7 @@ export default function Welcome() {
               // onPress={() => router.push("/login")}
               style={({ pressed }) => [
                 styles.primaryBtn,
-                { backgroundColor: colors.primary ?? "#E53935" },
+                { backgroundColor: colors.primaryColor ?? "#E53935" },
                 pressed && styles.pressed,
               ]}
             >
@@ -85,14 +85,14 @@ export default function Welcome() {
               // onPress={() => router.push("/register")}
               style={({ pressed }) => [
                 styles.secondaryBtn,
-                { borderColor: colors.primary ?? "#E53935" },
+                { borderColor: colors.primaryColor ?? "#E53935" },
                 pressed && styles.pressed,
               ]}
             >
               <StyledText
                 style={[
                   styles.secondaryText,
-                  { color: colors.primary ?? "#E53935" },
+                  { color: colors.primaryColor ?? "#E53935" },
                 ]}
               >
                 Create account

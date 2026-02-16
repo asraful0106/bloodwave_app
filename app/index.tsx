@@ -1,11 +1,10 @@
 import SafeScreen from "@/components/SafeScreen";
-import Welcome from "@/Pages/welcome/Welcome";
-import { Text, View } from "react-native";
+import Login from "@/Pages/login/Login";
 
 export default function Index() {
   return (
-    // <SafeScreen>
-    // </SafeScreen>
-    <Welcome />
+    <SafeScreen>
+      <Login />
+    </SafeScreen>
   );
 }
