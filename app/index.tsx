@@ -1,11 +1,12 @@
 import SafeScreen from "@/components/SafeScreen";
-import Login from "@/Pages/login/Login";
-import Register from "@/Pages/registration/Registration";
+import Login from "@/Pages/auth/login/Login";
+import OtpVerification from "@/Pages/auth/otp_varification/OtpVerification";
+import Register from "@/Pages/auth/registration/Registration";
 
 export default function Index() {
   return (
     <SafeScreen>
-      <Register />
+      <OtpVerification />
     </SafeScreen>
   );
 }
