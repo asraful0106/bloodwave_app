@@ -27,8 +27,8 @@ function AppShell() {
           contentStyle: { backgroundColor: colors.bodyBackground },
         }}
       >
-        {/* <Stack.Screen name="(tab)" />
-        <Stack.Screen
+        <Stack.Screen name="(tab)" />
+        {/* <Stack.Screen
           name="add"
           options={{
             presentation: "modal",

@@ -13,6 +13,15 @@ export const resources = {
         forget_password: "Forget Password?",
         login: "Login",
       },
+      home: {
+        home: "Home",
+      },
+      donated: {
+        donated: "Donated",
+      },
+      profile: {
+        profile: "Profile",
+      },
     },
   },
   bn: {
@@ -24,6 +33,15 @@ export const resources = {
         remember_me: "আমাকে মনে রেখো",
         forget_password: "পাসওয়ার্ড ভুলে গেছেন?",
         login: "লগইন",
+      },
+      home: {
+        home: "হোম",
+      },
+      donated: {
+        donated: "দান করেছেন",
+      },
+      profile: {
+        profile: "প্রোফাইল",
       },
     },
   },

@@ -6,6 +6,9 @@ export const lightColors = {
   textColor: "black",
   secondaryTextColor: "black",
   primaryColor: "#E53935",
+
+  bottomNavigationColor: "#E53935", // active (primary red)
+  bottomNavigationInActiveColor: "#9E9E9E", // neutral gray
 };
 export const darkColors = {
   bodyBackground: "#222831",
@@ -15,6 +18,9 @@ export const darkColors = {
   textColor: "#FFFFFF",
   secondaryTextColor: "#ADADAD",
   primaryColor: "#E53935",
+  
+  bottomNavigationColor: "#E53935", // active
+  bottomNavigationInActiveColor: "#6C757D", // soft gray
 };
 // all themes in one object
 export const themes = {
