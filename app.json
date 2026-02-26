@@ -21,7 +21,10 @@
       // },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.nextin.bloodwave"
+      "package": "com.nextin.bloodwave",
+
+      // others settings
+      "usesCleartextTraffic": true
     },
     "web": {
       "output": "static",
