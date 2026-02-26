@@ -3,10 +3,11 @@ import Avatar from "@/components/Avatar";
 import { StyledText } from "@/components/StyledText";
 import { ThemeColors } from "@/constants/themeCollorConstant";
 import { useTheme } from "@/hooks/theme/ThemeContext";
+import { withOpacity } from "@/helpers/withOpacity";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, FlatList, View } from "react-native";
+import { Alert, FlatList, ScrollView, View } from "react-native";
 import { moderateScale, ScaledSheet } from "react-native-size-matters";
 import BloodRequestCard from "./components/BloodRequestCard";
 
@@ -18,17 +19,15 @@ export default function Home() {
   const [requests, setRequests] = useState<typeof bloodRequestsData>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<null | string>(null);
+
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // Simulate network delay (remove this block when using real API)
         await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        // Load from local JSON asset
-        // In real app → replace with fetch('/api/requests') or axios.get(...)
         const data = bloodRequestsData;
 
         if (!Array.isArray(data)) {
@@ -48,18 +47,50 @@ export default function Home() {
     loadData();
   }, []);
 
-  const renderItem = ({ item }: { item: typeof bloodRequestsData[number] }) => (
-    <BloodRequestCard
-      request={item}
-    />
-  );
+  const renderItem = ({
+    item,
+  }: {
+    item: (typeof bloodRequestsData)[number];
+  }) => <BloodRequestCard request={item} />;
+
   return (
     <View style={{ paddingHorizontal: moderateScale(13) }}>
+      <FlatList
+        data={requests}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        style={{ marginBottom: moderateScale(20) }}
+        ListHeaderComponent={<HeadPart />}
+      />
+    </View>
+  );
+}
+
+const createStyles = (colors: ThemeColors) =>
+  ScaledSheet.create({
+    listContent: {},
+    emptyText: {
+      textAlign: "center",
+      fontSize: 16,
+      color: "#777",
+      marginTop: 40,
+    },
+  });
+
+const HeadPart = () => {
+  const { colors } = useTheme();
+  const [selectedFilter, setSelectedFilter] = useState("All");
+
+  const filters = ["All", "O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
+
+  // ✅ FIXED: added return statement
+  return (
+    <>
       {/* Request Blood */}
       <View
         style={{
           marginTop: moderateScale(20),
-          display: "flex",
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
@@ -67,7 +98,6 @@ export default function Home() {
       >
         <View
           style={{
-            display: "flex",
             flexDirection: "row",
             alignItems: "center",
             gap: moderateScale(10),
@@ -76,7 +106,7 @@ export default function Home() {
           <Avatar size={moderateScale(35)} />
           <StyledText
             style={{
-              fontWeight: "medium",
+              fontWeight: "500",
               fontSize: moderateScale(16, 0.3),
               color: colors.thirdTextColor,
             }}
@@ -90,32 +120,49 @@ export default function Home() {
           color={colors.secondaryColor}
         />
       </View>
-      {/* Blood Requests */}
-      <View style={{ marginTop: moderateScale(10) }} />
-      <FlatList
-        data={requests}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        style={{ marginBottom: moderateScale(90) }}
-        // ListEmptyComponent={
-        //   <StyledText style={styles.emptyText}>
-        //     No blood requests found
-        //   </StyledText>
-        // }
-      />
-    </View>
-  );
-}
 
-const createStyles = (colors: ThemeColors) =>
-  ScaledSheet.create({
-    listContent: {
-    },
-    emptyText: {
-      textAlign: "center",
-      fontSize: 16,
-      color: "#777",
-      marginTop: 40,
-    },
-  });
+      {/* Filter */}
+      <View style={{ marginTop: moderateScale(10) }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: moderateScale(5),
+            }}
+          >
+            {filters.map((filter, index) => {
+              const isSelected = filter === selectedFilter;
+              return (
+                // ✅ BONUS: filter selection now works with state
+                <View
+                  key={index}
+                  style={{
+                    paddingVertical: moderateScale(4),
+                    paddingHorizontal: moderateScale(12),
+                    backgroundColor: isSelected
+                      ? withOpacity("#e53935", 0.15)
+                      : "transparent",
+                    borderWidth: isSelected ? 0 : moderateScale(1),
+                    borderColor: colors.cardBorderColor,
+                    borderRadius: moderateScale(16),
+                  }}
+                >
+                  <StyledText
+                    style={{ color: "red" }}
+                    onPress={() => setSelectedFilter(filter)}
+                  >
+                    {filter}
+                  </StyledText>
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </View>
+
+      {/* Spacer before list */}
+      <View style={{ marginTop: moderateScale(10) }} />
+    </>
+  );
+};
