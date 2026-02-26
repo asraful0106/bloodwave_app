@@ -4,18 +4,15 @@ import { ThemeColors } from "@/constants/themeCollorConstant";
 import { useTheme } from "@/hooks/theme/ThemeContext";
 import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  TouchableOpacity,
-  View,
-  Platform,
-  Linking,
-  Alert,
-} from "react-native";
+import { TouchableOpacity, View, Platform, Linking, Alert } from "react-native";
 import { moderateScale, ScaledSheet } from "react-native-size-matters";
 import { WebView } from "react-native-webview";
 import * as Clipboard from "expo-clipboard";
+import { Entypo } from "@expo/vector-icons";
+import { withOpacity } from "@/helpers/withOpacity";
 
 interface BloodRequest {
+  blood_type: string;
   lat: number;
   lan: number;
   created_at: string;
@@ -132,10 +129,46 @@ const BloodRequestCard = ({
     <View style={styles.card}>
       {/* ── Header ── */}
       <View style={styles.header}>
-        <Avatar imageUrl={avatarUrl} />
-        <View style={styles.userInfo}>
-          <StyledText style={styles.userName}>User Name</StyledText>
-          <StyledText style={styles.date}>{date}</StyledText>
+        {/* user information */}
+        <View
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Avatar imageUrl={avatarUrl} />
+          <View style={styles.userInfo}>
+            <StyledText style={styles.userName}>User Name</StyledText>
+            <StyledText style={styles.date}>{date}</StyledText>
+          </View>
+        </View>
+        {/* blood type & action */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: moderateScale(10)
+          }}
+        >
+          <StyledText
+            style={{
+              paddingVertical: moderateScale(4),
+              paddingHorizontal: moderateScale(12),
+              backgroundColor: withOpacity("#e53935", 0.15),
+              color: "red",
+              borderRadius: moderateScale(16),
+            }}
+          >
+            {request.blood_type}
+          </StyledText>
+          <Entypo
+            name="dots-three-horizontal"
+            size={moderateScale(14)}
+            color={colors.textColor}
+          />
         </View>
       </View>
 
@@ -148,7 +181,7 @@ const BloodRequestCard = ({
           setShowFullDesc((p) => !p);
         }}
         onLongPress={() => {
-          if(showFullDesc){
+          if (showFullDesc) {
             copyToClipboard();
           }
         }}
@@ -200,7 +233,7 @@ const BloodRequestCard = ({
 const createStyles = (colors: ThemeColors) =>
   ScaledSheet.create({
     card: {
-      backgroundColor: "#ffffff",
+      backgroundColor: colors.bodyBackground,
       borderRadius: moderateScale(12),
       borderWidth: moderateScale(0.5),
       borderColor: colors.cardBorderColor,
@@ -208,55 +241,55 @@ const createStyles = (colors: ThemeColors) =>
       padding: moderateScale(16),
     },
     header: {
+      display: "flex",
       flexDirection: "row",
-      alignItems: "center",
-      marginBottom: 12,
+      justifyContent: "space-between",
+      marginBottom: moderateScale(12),
     },
     userInfo: {
-      marginLeft: 12,
-      flex: 1,
+      marginLeft: moderateScale(12),
     },
     userName: {
-      fontSize: 16,
+      fontSize: moderateScale(16, 0.3),
       fontWeight: "600",
-      color: "#1a1a1a",
+      color: colors.textColor,
     },
     date: {
-      fontSize: 13,
-      color: "#757575",
-      marginTop: 2,
+      fontSize: moderateScale(10, 0.3),
+      color: colors.thirdTextColor,
+      marginTop: moderateScale(2),
     },
     descriptionContainer: {
       flexDirection: "row",
       alignItems: "flex-end",
-      marginBottom: 16,
+      marginBottom: moderateScale(16),
     },
     description: {
       flex: 1,
-      fontSize: 15,
-      lineHeight: 22,
-      color: "#333",
-      marginRight: 8,
+      fontSize: moderateScale(15, 0.3),
+      lineHeight: moderateScale(22),
+      color: colors.descriptionTextColor,
+      marginRight: moderateScale(8),
     },
     moreLess: {
       color: "#1976d2",
       fontWeight: "600",
-      fontSize: 14,
+      fontSize: moderateScale(14, 0.3),
     },
     mapContainer: {
-      borderRadius: 8,
+      borderRadius: moderateScale(8),
       overflow: "hidden",
-      height: 220,
+      height: moderateScale(220),
       position: "relative",
     },
     openMapsButton: {
       position: "absolute",
-      bottom: 10,
-      right: 10,
+      bottom: moderateScale(10),
+      right: moderateScale(10),
       backgroundColor: "rgba(0, 0, 0, 0.65)",
-      paddingHorizontal: 12,
-      paddingVertical: 7,
-      borderRadius: 20,
+      paddingHorizontal: moderateScale(12),
+      paddingVertical: moderateScale(7),
+      borderRadius: moderateScale(16),
       // subtle shadow so it pops over the map
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 1 },
