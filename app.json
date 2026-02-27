@@ -43,6 +43,10 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-location",
+        { "locationWhenInUsePermission": "Used to find nearby donors." }
       ]
     ],
     "experiments": {

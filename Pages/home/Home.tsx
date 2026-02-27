@@ -10,6 +10,8 @@ import { useTranslation } from "react-i18next";
 import { Alert, FlatList, ScrollView, View } from "react-native";
 import { moderateScale, ScaledSheet } from "react-native-size-matters";
 import BloodRequestCard from "./components/BloodRequestCard";
+import { useRouter } from "expo-router";
+import { PlatformPressable } from "@react-navigation/elements";
 
 export default function Home() {
   const { colors } = useTheme();
@@ -79,6 +81,7 @@ const createStyles = (colors: ThemeColors) =>
   });
 
 const HeadPart = () => {
+  const router = useRouter();
   const { colors } = useTheme();
   const [selectedFilter, setSelectedFilter] = useState("All");
 
@@ -114,11 +117,22 @@ const HeadPart = () => {
             Community Blood Request...
           </StyledText>
         </View>
-        <MaterialCommunityIcons
-          name="heart-plus"
-          size={moderateScale(24)}
-          color={colors.secondaryColor}
-        />
+        <PlatformPressable
+          onPress={() =>
+            router.push({
+              pathname: "/(othersPage)/requestBlood",
+              // params: {
+              //   debtId: data.id,
+              // },
+            })
+          }
+        >
+          <MaterialCommunityIcons
+            name="heart-plus"
+            size={moderateScale(24)}
+            color={colors.secondaryColor}
+          />
+        </PlatformPressable>
       </View>
 
       {/* Filter */}
