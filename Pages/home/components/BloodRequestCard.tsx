@@ -11,6 +11,8 @@ import * as Clipboard from "expo-clipboard";
 import { Entypo } from "@expo/vector-icons";
 import { withOpacity } from "@/helpers/withOpacity";
 
+import * as Progress from "react-native-progress";
+
 interface BloodRequest {
   blood_type: string;
   lat: number;
@@ -150,7 +152,7 @@ const BloodRequestCard = ({
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: moderateScale(10)
+            gap: moderateScale(10),
           }}
         >
           <StyledText
@@ -225,6 +227,98 @@ const BloodRequestCard = ({
         >
           <StyledText style={styles.openMapsText}>📍 Open in Maps</StyledText>
         </TouchableOpacity>
+      </View>
+
+      {/* other actions */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginTop: moderateScale(10),
+        }}
+      >
+        {/* Progressbar */}
+        <View
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            gap: moderateScale(5),
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Progress.Bar
+            progress={0.4}
+            height={moderateScale(6.5)}
+            width={moderateScale(120)}
+            borderWidth={0.3}
+            unfilledColor={colors.bodyBackground}
+            color={colors.secondaryColor}
+            borderColor={colors.secondaryColor}
+          />
+          <StyledText
+            style={{
+              fontSize: moderateScale(12, 0.3),
+              fontWeight: "bold",
+              color: colors.thirdTextColor,
+            }}
+          >
+            3/5
+          </StyledText>
+        </View>
+        {/* actions button */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: moderateScale(10),
+          }}
+        >
+          {/* Donate Blood Button */}
+          <TouchableOpacity
+            style={{
+              backgroundColor: "red",
+              paddingVertical: moderateScale(4),
+              paddingHorizontal: moderateScale(8),
+              borderRadius: moderateScale(6),
+            }}
+            // disabled={true}
+          >
+            <StyledText
+              style={{
+                color: "white",
+                fontSize: moderateScale(10, 0.3),
+                fontWeight: "bold",
+              }}
+            >
+              Donate
+            </StyledText>
+          </TouchableOpacity>
+
+          {/* View Contact Button */}
+          <TouchableOpacity
+            style={{
+              backgroundColor: colors.secondaryColor,
+              paddingVertical: moderateScale(4),
+              paddingHorizontal: moderateScale(8),
+              borderRadius: moderateScale(6),
+            }}
+            onPress={() => {
+              console.log("View Contact Pressed!");
+            }}
+          >
+            <StyledText
+              style={{
+                color: "white",
+                fontSize: moderateScale(10, 0.3),
+                fontWeight: "bold",
+              }}
+            >
+              Contact
+            </StyledText>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
