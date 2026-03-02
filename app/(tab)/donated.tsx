@@ -1,6 +1,6 @@
 import CustomTitleBar from "@/components/CustomTitleBar";
 import SafeScreen from "@/components/SafeScreen";
-import Given from "@/Pages/given/Given";
+import MyDonations from "@/Pages/donated/MyDonations";
 import React from "react";
 import { useTranslation } from "react-i18next";
 
@@ -10,7 +10,7 @@ export default function index() {
     <>
       <SafeScreen>
         <CustomTitleBar />
-          <Given />
+          <MyDonations />
       </SafeScreen>
     </>
   );
