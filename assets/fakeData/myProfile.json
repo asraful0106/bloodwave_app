@@ -1,0 +1,203 @@
+{
+  "user": {
+    "id": "u-001",
+    "f_name": "Arif",
+    "l_name": "Hossain",
+    "phone": "+8801712345678",
+    "email": "arif.hossain@gmail.com",
+    "user_role": "USER",
+    "gender": "MALE",
+    "date_of_birth": "1998-04-15",
+    "blood_group_id": "bg-3",
+    "blood_group_name": "B+",
+    "is_verified": true,
+    "status": "ACTIVE",
+    "created_by": "SELF",
+    "institution_id": null,
+    "created_at": "2023-06-01T00:00:00Z",
+    "updated_at": "2025-01-10T00:00:00Z"
+  },
+  "user_image": {
+    "id": "img-001",
+    "user_id": "u-001",
+    "link": "https://i.pravatar.cc/300?u=arif001",
+    "provider": "cloudinary",
+    "is_primary": true,
+    "meta": { "width": 300, "height": 300 }
+  },
+  "donor_profile": {
+    "id": "dp-001",
+    "user_id": "u-001",
+    "is_available": true,
+    "inactive_until": null,
+    "last_donation_date": "2025-01-05",
+    "next_eligible_date": "2025-03-02",
+    "total_donations": 8,
+    "created_at": "2023-06-01T00:00:00Z",
+    "updated_at": "2025-01-05T00:00:00Z"
+  },
+  "donor_privacy_settings": {
+    "id": "priv-001",
+    "user_id": "u-001",
+    "show_name": true,
+    "show_gender": false,
+    "show_age": false,
+    "show_phone": false,
+    "show_last_donation": false,
+    "emergency_only": false,
+    "allow_inapp_call": false,
+    "allow_chat": true
+  },
+  "user_locations": [
+    {
+      "id": "loc-001",
+      "user_id": "u-001",
+      "address_text": "House 12, Road 5, Dhanmondi, Dhaka",
+      "city": "Dhaka",
+      "lat": 23.7461,
+      "lng": 90.3742,
+      "is_primary": true,
+      "created_at": "2023-06-01T00:00:00Z",
+      "updated_at": "2024-11-01T00:00:00Z"
+    },
+    {
+      "id": "loc-002",
+      "user_id": "u-001",
+      "address_text": "Flat 3B, Gulshan Avenue, Gulshan-2, Dhaka",
+      "city": "Dhaka",
+      "lat": 23.7937,
+      "lng": 90.4066,
+      "is_primary": false,
+      "created_at": "2024-03-10T00:00:00Z",
+      "updated_at": "2024-03-10T00:00:00Z"
+    }
+  ],
+  "user_contacts": [
+    {
+      "id": "con-001",
+      "user_id": "u-001",
+      "type": "phone",
+      "title": "Primary",
+      "value": "+8801712345678",
+      "is_public": true
+    },
+    {
+      "id": "con-002",
+      "user_id": "u-001",
+      "type": "phone",
+      "title": "Emergency",
+      "value": "+8801987654321",
+      "is_public": false
+    },
+    {
+      "id": "con-003",
+      "user_id": "u-001",
+      "type": "website",
+      "title": "Facebook",
+      "value": "https://facebook.com/arif.hossain",
+      "is_public": true
+    },
+    {
+      "id": "con-004",
+      "user_id": "u-001",
+      "type": "social",
+      "title": "LinkedIn",
+      "value": "https://linkedin.com/in/arif-hossain",
+      "is_public": true
+    }
+  ],
+  "user_activity": [
+    { "date": "2025-01-05", "count": 3 },
+    { "date": "2025-01-04", "count": 1 },
+    { "date": "2025-01-03", "count": 2 },
+    { "date": "2024-12-28", "count": 4 },
+    { "date": "2024-12-20", "count": 1 },
+    { "date": "2024-12-15", "count": 2 },
+    { "date": "2024-11-30", "count": 1 },
+    { "date": "2024-11-22", "count": 3 },
+    { "date": "2024-10-12", "count": 2 },
+    { "date": "2024-09-05", "count": 1 }
+  ],
+  "blood_requests": [
+    {
+      "id": "br-201",
+      "user_id": "u-001",
+      "blood_group_id": "bg-3",
+      "blood_group_name": "B+",
+      "description": "My father needs blood urgently before bypass surgery scheduled tomorrow morning. Please help!",
+      "units_required": 3,
+      "units_fulfilled": 3,
+      "lat": 23.7261,
+      "lng": 90.3925,
+      "urgency_level": "URGENT",
+      "patient_type": "RELATIVE",
+      "needed_by": "2025-01-06T08:00:00Z",
+      "status": "FULFILLED",
+      "share_token": "shr_abc123def456",
+      "created_at": "2025-01-04T14:00:00Z",
+      "updated_at": "2025-01-05T22:00:00Z",
+      "location_label": "Dhaka Medical College Hospital",
+      "donors_count": 3
+    },
+    {
+      "id": "br-202",
+      "user_id": "u-001",
+      "blood_group_id": "bg-3",
+      "blood_group_name": "B+",
+      "description": "My sister needs blood for a scheduled surgery next week. Looking for compatible donors in Dhaka.",
+      "units_required": 2,
+      "units_fulfilled": 0,
+      "lat": 23.7501,
+      "lng": 90.3935,
+      "urgency_level": "NORMAL",
+      "patient_type": "RELATIVE",
+      "needed_by": "2025-03-15T10:00:00Z",
+      "status": "OPEN",
+      "share_token": "shr_xyz789uvw012",
+      "created_at": "2025-02-20T09:00:00Z",
+      "updated_at": "2025-02-20T09:00:00Z",
+      "location_label": "Square Hospitals Ltd",
+      "donors_count": 0
+    },
+    {
+      "id": "br-203",
+      "user_id": "u-001",
+      "blood_group_id": "bg-3",
+      "blood_group_name": "B+",
+      "description": "Needed blood for emergency accident victim. No longer needed — found donors. Thank you community!",
+      "units_required": 4,
+      "units_fulfilled": 2,
+      "lat": 23.7693,
+      "lng": 90.3748,
+      "urgency_level": "EMERGENCY",
+      "patient_type": "UNKNOWN",
+      "needed_by": "2024-11-01T14:00:00Z",
+      "status": "CANCELLED",
+      "share_token": null,
+      "created_at": "2024-10-31T10:00:00Z",
+      "updated_at": "2024-11-01T15:00:00Z",
+      "location_label": "Dhaka National Medical Institute",
+      "donors_count": 2
+    },
+    {
+      "id": "br-204",
+      "user_id": "u-001",
+      "blood_group_id": "bg-3",
+      "blood_group_name": "B+",
+      "description": "Thalassemia patient needing monthly transfusion support. Regular donors welcome.",
+      "units_required": 2,
+      "units_fulfilled": 0,
+      "lat": 23.7853,
+      "lng": 90.4127,
+      "urgency_level": "NORMAL",
+      "patient_type": "RELATIVE",
+      "needed_by": "2024-07-25T10:00:00Z",
+      "status": "EXPIRED",
+      "share_token": null,
+      "created_at": "2024-07-20T08:00:00Z",
+      "updated_at": "2024-07-26T00:00:00Z",
+      "location_label": "Dhaka Shishu Hospital",
+      "donors_count": 0
+    }
+  ]
+}
