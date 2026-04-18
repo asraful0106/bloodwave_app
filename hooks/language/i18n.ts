@@ -22,6 +22,11 @@ export const resources = {
       profile: {
         profile: "Profile",
       },
+      setting: {
+        generalSetting: "General Setting",
+        theme: "Theme",
+        language: "Language",
+      },
     },
   },
   bn: {
@@ -42,6 +47,11 @@ export const resources = {
       },
       profile: {
         profile: "প্রোফাইল",
+      },
+      setting: {
+        generalSetting: "সাধারণ সেটিংস",
+        theme: "থিম",
+        language: "ভাষা",
       },
     },
   },

@@ -2,7 +2,7 @@ import SafeScreen from "@/components/SafeScreen";
 import { StyledText } from "@/components/StyledText";
 import { ThemeColors } from "@/constants/themeCollorConstant";
 import { useTheme } from "@/hooks/theme/ThemeContext";
-import Settings from "@/Pages/settings/Settings";
+import Settings from "@/Pages/settings/Setting";
 import Entypo from "@expo/vector-icons/Entypo";
 import { useRouter } from "expo-router";
 import React, { useMemo } from "react";

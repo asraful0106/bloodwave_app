@@ -24,8 +24,8 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [themeName, setThemeName] = useState<ThemeName>("dark"); //dark
-  const [cTheme, setCTheme] = useState<ThemeMode>("light"); //light
+  const [themeName, setThemeName] = useState<ThemeName>("light"); //dark
+  const [cTheme, setCTheme] = useState<ThemeMode>("dark"); //light
   const [isHydrated, setIsHydrated] = useState(false);
 
   // Load theme on app startup
@@ -55,7 +55,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const value: ThemeContextValue = {
     themeName,
-    colors: themes["light"],
+    colors: themes[themeName],
     config: {
       style: cTheme,
       bg: themes[themeName],
