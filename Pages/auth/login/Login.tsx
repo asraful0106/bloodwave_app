@@ -1,3 +1,4 @@
+// /@/Pages/auth/login/Login.tsx
 import { View, Image } from "react-native";
 import React, { useMemo, useState } from "react";
 import { useTheme } from "@/hooks/theme/ThemeContext";
@@ -9,6 +10,8 @@ import { useTranslation } from "react-i18next";
 import { GiftCheckbox } from "@/components/GiftCheckbox";
 import { PlatformPressable } from "@react-navigation/elements";
 import AppButton from "@/components/AppButton";
+import { useRouter } from "expo-router";
+import { useAuth } from "@/context/AuthContext";
 
 interface ILoginFromData {
   email: string;
@@ -16,6 +19,8 @@ interface ILoginFromData {
 }
 
 export default function Login() {
+  const router = useRouter();
+  const {setTempLoggedIn} = useAuth();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -31,7 +36,11 @@ export default function Login() {
   const setPassword = (password: string) =>
     setLoginFromData((prev) => ({ ...prev, password }));
 
-  /* ... */
+
+  const handleSignup = () => {
+    console.log("register")
+    router.push("/register");
+  }
 
   return (
     <View
@@ -153,7 +162,6 @@ export default function Login() {
               onChange={() => setIsRemember(!isRemember)}
               value={isRemember}
               label={t("login.remember_me")}
-
             />
             <StyledText style={{ color: colors.primaryColor }}>
               {t("login.forget_password")}
@@ -172,6 +180,7 @@ export default function Login() {
               paddingVertical: moderateScale(15),
               borderRadius: moderateScale(12),
             }}
+            onPress={setTempLoggedIn}
           />
         </View>
 
@@ -189,11 +198,14 @@ export default function Login() {
           <StyledText style={{ color: colors.textColor }}>
             Don't have an account?
           </StyledText>
-          <StyledText
-            style={{ fontWeight: "bold", color: colors.primaryColor }}
-          >
-            Sign Up
-          </StyledText>
+          {/* Signup */}
+          <PlatformPressable onPress={ handleSignup}>
+            <StyledText
+              style={{ fontWeight: "bold", color: colors.primaryColor }}
+            >
+              Sign Up
+            </StyledText>
+          </PlatformPressable>
         </View>
       </View>
     </View>

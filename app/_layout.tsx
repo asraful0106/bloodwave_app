@@ -1,12 +1,14 @@
-import { ThemeProvider } from "@/hooks/theme/ThemeContext";
-import { Stack } from "expo-router";
+// /@/app/_layout.tsx
+import { ThemeProvider, useTheme } from "@/hooks/theme/ThemeContext";
+import { Redirect, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
-import { useTheme } from "@/hooks/theme/ThemeContext";
 import { LanguageProvider } from "@/hooks/language/LanguageContext";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 
 function AppShell() {
   const { colors, config } = useTheme();
+  const { tempIsLoggedIn } = useAuth();
 
   const [fontsLoaded, fontError] = useFonts({
     SansFlex: require("../assets/fonts/SansFlex.ttf"),
@@ -14,13 +16,11 @@ function AppShell() {
     Noto: require("../assets/fonts/Noto.ttf"),
   });
 
-  const isAppReady = Boolean(fontsLoaded && !fontError);
-
-  // optional: don’t render UI until fonts are ready
-  if (!isAppReady) return null;
+  if (!fontsLoaded || fontError) return null;
 
   return (
     <>
+      {/* Single Stack — all screens declared here, always */}
       <Stack
         screenOptions={{
           headerShown: false,
@@ -28,16 +28,16 @@ function AppShell() {
         }}
       >
         <Stack.Screen name="(tab)" />
-        {/* <Stack.Screen
-          name="add"
-          options={{
-            presentation: "modal",
-            animation: "slide_from_bottom",
-            gestureEnabled: true,
-            headerShown: false,
-          }}
-        /> */}
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(othersPage)" />
       </Stack>
+
+      {/* Redirect based on auth state */}
+      {tempIsLoggedIn ? (
+        <Redirect href="/(tab)" />
+      ) : (
+        <Redirect href="/login" />
+      )}
 
       <StatusBar style={config.style} backgroundColor={colors.bodyBackground} />
     </>
@@ -46,10 +46,12 @@ function AppShell() {
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <LanguageProvider>
-        <AppShell />
-      </LanguageProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <AppShell />
+        </LanguageProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }

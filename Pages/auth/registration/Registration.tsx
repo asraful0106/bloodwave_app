@@ -1,3 +1,4 @@
+// /@/Pages/auth/registration/Registration.tsx
 import React, { useMemo, useRef, useState } from "react";
 import { View, Image, findNodeHandle } from "react-native";
 import { moderateScale, ScaledSheet } from "react-native-size-matters";

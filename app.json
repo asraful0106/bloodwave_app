@@ -13,17 +13,9 @@
       "bundleIdentifier": "com.nextin.bloodwave"
     },
     "android": {
-      // "adaptiveIcon": {
-      //   "backgroundColor": "#E6F4FE",
-      //   "foregroundImage": "./assets/images/android-icon-foreground.png",
-      //   "backgroundImage": "./assets/images/android-icon-background.png",
-      //   "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      // },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.nextin.bloodwave",
-
-      // others settings
       "usesCleartextTraffic": true
     },
     "web": {
@@ -46,8 +38,11 @@
       ],
       [
         "expo-location",
-        { "locationWhenInUsePermission": "Used to find nearby donors." }
-      ]
+        {
+          "locationWhenInUsePermission": "Used to find nearby donors."
+        }
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

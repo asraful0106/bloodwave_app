@@ -9,7 +9,6 @@ export default function requestBlood() {
   return (
     <>
       <SafeScreen>
-        {/* <CustomTitleBar /> */}
         <BloodRequestForm />
       </SafeScreen>
     </>
