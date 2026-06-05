@@ -1,6 +1,6 @@
-// /@/Pages/auth/login/Login.tsx
+// @/Pages/auth/login/Login.tsx
 import { View, Image } from "react-native";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "@/hooks/theme/ThemeContext";
 import { ThemeColors } from "@/constants/themeCollorConstant";
 import { moderateScale, ScaledSheet } from "react-native-size-matters";
@@ -12,6 +12,8 @@ import { PlatformPressable } from "@react-navigation/elements";
 import AppButton from "@/components/AppButton";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { AlertToast } from "@/components/AlertToast";
 
 interface ILoginFromData {
   email: string;
@@ -20,15 +22,31 @@ interface ILoginFromData {
 
 export default function Login() {
   const router = useRouter();
-  const {setTempLoggedIn} = useAuth();
+  const { login, isLoading: loginLoading, error: loginError } = useAuth();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [loginFromData, setLoginFromData] = useState<ILoginFromData>({
     email: "",
     password: "",
   });
   const [isRemember, setIsRemember] = useState<boolean>(false);
+  const [toastVisible, setToastVisible] = useState(false);
+
+  // Show toast whenever a new error arrives from AuthContext
+  const prevError = useRef<string | null>(null);
+  useEffect(() => {
+    if (loginError && loginError !== prevError.current) {
+      prevError.current = loginError;
+      setToastVisible(true);
+    }
+    if (!loginError) {
+      prevError.current = null;
+      setToastVisible(false);
+    }
+  }, [loginError]);
+
   // helpers
   const setEmail = (email: string) =>
     setLoginFromData((prev) => ({ ...prev, email }));
@@ -36,21 +54,39 @@ export default function Login() {
   const setPassword = (password: string) =>
     setLoginFromData((prev) => ({ ...prev, password }));
 
-
   const handleSignup = () => {
-    console.log("register")
     router.push("/register");
-  }
+  };
+
+  const handleLogin = () => {
+    // Dismiss any previous toast before attempting
+    setToastVisible(false);
+    login({ email: loginFromData.email, password: loginFromData.password });
+  };
 
   return (
     <View
       style={[
         {
+          flex: 1,
           backgroundColor: colors.bodyBackground,
           paddingHorizontal: moderateScale(10),
         },
       ]}
     >
+      {/* ── Reusable components ───────────────────────────────────────── */}
+      <LoadingOverlay visible={loginLoading} message={t("universal.loading")} />
+
+      <AlertToast
+        visible={toastVisible}
+        type="error"
+        title={t("login.error_title")}
+        message={loginError ?? t("login.error_generic")}
+        duration={4000}
+        onDismiss={() => setToastVisible(false)}
+      />
+      {/* ─────────────────────────────────────────────────────────────── */}
+
       <View
         style={{
           height: moderateScale(100),
@@ -64,6 +100,7 @@ export default function Login() {
           resizeMode="cover"
         />
       </View>
+
       <View style={{ marginHorizontal: moderateScale(20) }}>
         <StyledText
           style={{
@@ -76,7 +113,7 @@ export default function Login() {
           {t("login.welcome_back")}
         </StyledText>
 
-        {/* Login From */}
+        {/* Login Form */}
         <View
           style={{
             marginTop: moderateScale(20),
@@ -118,6 +155,7 @@ export default function Login() {
               textColor: colors.secondaryTextColor,
             }}
           />
+
           {/* Password */}
           <TextInputField
             value={loginFromData.password}
@@ -140,7 +178,7 @@ export default function Login() {
               size: 16,
             }}
             rightIcon={{
-              name: "eye", // overridden to eye/eye-slash and toggles visibility
+              name: "eye",
               color: colors.secondaryTextColor,
               size: 14,
             }}
@@ -149,7 +187,8 @@ export default function Login() {
               textColor: colors.secondaryTextColor,
             }}
           />
-          {/* Remeber me + forget password */}
+
+          {/* Remember me + Forgot password */}
           <View
             style={{
               display: "flex",
@@ -167,24 +206,26 @@ export default function Login() {
               {t("login.forget_password")}
             </StyledText>
           </View>
-          {/* Login button */}
+
+          {/* Login button — disabled while loading */}
           <AppButton
             title={t("login.login")}
-            // onPress={handleLogin}
+            onPress={handleLogin}
             bgColor={colors.primaryColor}
+            disabled={loginLoading}
             containerStyle={{
               marginTop: moderateScale(70),
               borderRadius: moderateScale(12),
+              opacity: loginLoading ? 0.6 : 1,
             }}
             buttonStyle={{
               paddingVertical: moderateScale(15),
               borderRadius: moderateScale(12),
             }}
-            onPress={setTempLoggedIn}
           />
         </View>
 
-        {/* register route */}
+        {/* Register route */}
         <View
           style={{
             display: "flex",
@@ -198,8 +239,7 @@ export default function Login() {
           <StyledText style={{ color: colors.textColor }}>
             Don't have an account?
           </StyledText>
-          {/* Signup */}
-          <PlatformPressable onPress={ handleSignup}>
+          <PlatformPressable onPress={handleSignup}>
             <StyledText
               style={{ fontWeight: "bold", color: colors.primaryColor }}
             >
@@ -211,4 +251,5 @@ export default function Login() {
     </View>
   );
 }
+
 const createStyles = (colors: ThemeColors) => ScaledSheet.create({});

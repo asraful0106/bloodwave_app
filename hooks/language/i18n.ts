@@ -12,6 +12,8 @@ export const resources = {
         remember_me: "Remember me",
         forget_password: "Forget Password?",
         login: "Login",
+        error_title: "Login Error",
+        error_generic: "Something went wrong. Unable to login.",
       },
       home: {
         home: "Home",
@@ -27,6 +29,9 @@ export const resources = {
         theme: "Theme",
         language: "Language",
       },
+      universal: {
+        loading: "Loading",
+      },
     },
   },
   bn: {
@@ -38,6 +43,8 @@ export const resources = {
         remember_me: "আমাকে মনে রেখো",
         forget_password: "পাসওয়ার্ড ভুলে গেছেন?",
         login: "লগইন",
+        error_title: "লগইন ত্রুটি",
+        error_generic: "কিছু একটা ভুল হয়েছে। লগইন করা সম্ভব হয়নি।",
       },
       home: {
         home: "হোম",
@@ -52,6 +59,9 @@ export const resources = {
         generalSetting: "সাধারণ সেটিংস",
         theme: "থিম",
         language: "ভাষা",
+      },
+      universal: {
+        loading: "লোড হচ্ছে",
       },
     },
   },

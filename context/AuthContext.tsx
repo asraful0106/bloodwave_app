@@ -88,7 +88,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         "/auth/login",
         { email, password },
       );
-      await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, data.accessToken);
+      // console.log("###: ",data)
+      await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, data.data.accessToken);
       setAccessToken(data.accessToken);
       setStatus("authenticated");
     } catch (err: any) {

@@ -4,8 +4,8 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function OthersLayout() {
   // If somehow an authenticated user lands here, send them home
-  const { tempIsLoggedIn } = useAuth();
-  if (tempIsLoggedIn) return <Redirect href="/(tab)" />;
+  const { isAuthenticated } = useAuth();
+  if (isAuthenticated) return <Redirect href="/(tab)" />;
 
   return <Stack screenOptions={{ headerShown: false }} />;
 }
