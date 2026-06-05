@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import * as SecureStore from "expo-secure-store";
+import apiClient from "@/config/client";
 
 // ─────────────────────────────────────────────
 // Constants
@@ -16,35 +17,25 @@ const ACCESS_TOKEN_KEY = "access_token";
 // ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
-type AuthStatus = "loading" | "authenticated" | "unauthenticated";
+type AuthStatus = "authenticated" | "unauthenticated";
 
-interface AuthState {
-  /** Current authentication lifecycle status */
-  status: AuthStatus;
-  /** Convenience boolean — true only when status is "authenticated" */
-  isAuthenticated: boolean;
-  /** The stored access token, or null when logged out */
-  accessToken: string | null;
+interface LoginCredentials {
+  email: string;
+  password: string;
 }
 
-interface AuthContextValue extends AuthState {
-  /**
-   * Persists the access token to SecureStore and marks the session
-   * as authenticated.
-   */
-  login: (token: string) => Promise<void>;
-  /**
-   * Removes the access token from SecureStore and resets all auth
-   * state back to unauthenticated.
-   */
+interface AuthContextValue {
+  status: AuthStatus;
+  isAuthenticated: boolean;
+  accessToken: string | null;
+  isLoading: boolean;
+  error: string | null;
+  clearError: () => void;
+  login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void>;
-
-  // ── DEMO ONLY — remove this block when real auth is wired up ────────────
-  /** Temporary flag for quick UI demos. Always starts as false. */
+  /** Demo only — simulates a logged-in state without a real token. */
   tempIsLoggedIn: boolean;
-  /** Sets tempIsLoggedIn to true. Use to simulate a logged-in state during demos. */
   setTempLoggedIn: () => void;
-  // ── END DEMO ─────────────────────────────────────────────────────────────
 }
 
 // ─────────────────────────────────────────────
@@ -56,23 +47,17 @@ AuthContext.displayName = "AuthContext";
 // ─────────────────────────────────────────────
 // Provider
 // ─────────────────────────────────────────────
-interface AuthProviderProps {
-  children: React.ReactNode;
-}
-
-export function AuthProvider({ children }: AuthProviderProps) {
-  const [status, setStatus] = useState<AuthStatus>("loading");
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [status, setStatus] = useState<AuthStatus>("unauthenticated");
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [tempIsLoggedIn, setTempIsLoggedIn] = useState(false);
 
-  // ── DEMO ONLY — remove this block when real auth is wired up ────────────
-  // Quick toggle so you can demo logged-in screens without a real token.
-  // Usage:  const { tempIsLoggedIn, setTempLoggedIn } = useAuth();
-  //         <Button onPress={setTempLoggedIn} title="Demo Login" />
-  const [tempIsLoggedIn, setTempIsLoggedIn] = useState<boolean>(false);
   const setTempLoggedIn = useCallback(() => setTempIsLoggedIn(true), []);
-  // ── END DEMO ─────────────────────────────────────────────────────────────
+  const clearError = useCallback(() => setError(null), []);
 
-  // ── Restore persisted token on mount ──────────────────────────────────
+  // Restore persisted token on mount
   useEffect(() => {
     let cancelled = false;
 
@@ -80,16 +65,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         const stored = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
         if (cancelled) return;
-
         if (stored) {
           setAccessToken(stored);
           setStatus("authenticated");
-        } else {
-          setStatus("unauthenticated");
         }
-      } catch (error) {
-        console.error("[AuthContext] Failed to restore token:", error);
-        if (!cancelled) setStatus("unauthenticated");
+      } catch (err) {
+        console.error("[AuthContext] Failed to restore token:", err);
       }
     }
 
@@ -99,51 +80,67 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
-  // ── login ──────────────────────────────────────────────────────────────
-  const login = useCallback(async (token: string) => {
-    if (!token)
-      throw new Error("[AuthContext] login() requires a non-empty token.");
-
+  const login = useCallback(async ({ email, password }: LoginCredentials) => {
+    setIsLoading(true);
+    setError(null);
     try {
-      await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
-      setAccessToken(token);
+      const { data } = await apiClient.post(
+        "/auth/login",
+        { email, password },
+      );
+      await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, data.accessToken);
+      setAccessToken(data.accessToken);
       setStatus("authenticated");
-    } catch (error) {
-      console.error("[AuthContext] Failed to store token:", error);
-      throw error;
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ??
+        err?.message ??
+        "Login failed. Please try again.";
+      setError(message);
+      throw err; // re-throw so the screen can react if needed
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
-  // ── logout ─────────────────────────────────────────────────────────────
   const logout = useCallback(async () => {
+    setIsLoading(true);
     try {
+      await apiClient.post("/auth/logout");
       await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-    } catch (error) {
-      // Log but continue — local state should still be cleared.
-      console.error(
-        "[AuthContext] Failed to delete token from SecureStore:",
-        error,
-      );
+    } catch (err) {
+      console.error("[AuthContext] Logout error:", err);
     } finally {
       setAccessToken(null);
       setStatus("unauthenticated");
+      setIsLoading(false);
     }
   }, []);
 
-  // ── Memoised context value ─────────────────────────────────────────────
   const value = useMemo<AuthContextValue>(
     () => ({
       status,
       isAuthenticated: status === "authenticated",
       accessToken,
+      isLoading,
+      error,
+      clearError,
       login,
       logout,
-      // ── DEMO ONLY — remove these two lines when real auth is wired up ──
       tempIsLoggedIn,
       setTempLoggedIn,
-      // ── END DEMO ────────────────────────────────────────────────────────
     }),
-    [status, accessToken, login, logout, tempIsLoggedIn, setTempLoggedIn], // remove tempIsLoggedIn & setTempLoggedIn from deps when cleaning up
+    [
+      status,
+      accessToken,
+      isLoading,
+      error,
+      clearError,
+      login,
+      logout,
+      tempIsLoggedIn,
+      setTempLoggedIn,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -155,17 +152,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
 /**
  * Returns the current auth context.
- *
- * @example
- * const { isAuthenticated, accessToken, login, logout } = useAuth();
- *
  * @throws When called outside of <AuthProvider />.
  */
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth() must be used inside <AuthProvider />.");
-  }
+  if (!ctx) throw new Error("useAuth() must be used inside <AuthProvider />.");
   return ctx;
 }
 
