@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import * as SecureStore from "expo-secure-store";
 import apiClient from "@/config/client";
+import { router } from "expo-router";
 
 // ─────────────────────────────────────────────
 // Constants
@@ -84,10 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
-      const { data } = await apiClient.post(
-        "/auth/login",
-        { email, password },
-      );
+      const { data } = await apiClient.post("/auth/login", { email, password });
       // console.log("###: ",data)
       await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, data.data.accessToken);
       setAccessToken(data.accessToken);
@@ -110,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await apiClient.post("/auth/logout");
       await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
     } catch (err) {
+      router.push("/(auth)/login");
       console.error("[AuthContext] Logout error:", err);
     } finally {
       setAccessToken(null);
