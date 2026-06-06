@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { LanguageProvider } from "@/hooks/language/LanguageContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { RegisterProvider } from "@/context/RegistrationContext";
 
 function AppShell() {
   const { colors, config } = useTheme();
@@ -33,11 +34,7 @@ function AppShell() {
       </Stack>
 
       {/* Redirect based on auth state */}
-      {tempIsLoggedIn ? (
-        <Redirect href="/(tab)" />
-      ) : (
-        <Redirect href="/login" />
-      )}
+      {tempIsLoggedIn ? <Redirect href="/(tab)" /> : <Redirect href="/login" />}
 
       <StatusBar style={config.style} backgroundColor={colors.bodyBackground} />
     </>
@@ -46,12 +43,14 @@ function AppShell() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <ThemeProvider>
-        <LanguageProvider>
-          <AppShell />
-        </LanguageProvider>
-      </ThemeProvider>
-    </AuthProvider>
+    <RegisterProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppShell />
+          </LanguageProvider>
+        </ThemeProvider>
+      </AuthProvider>
+    </RegisterProvider>
   );
 }
