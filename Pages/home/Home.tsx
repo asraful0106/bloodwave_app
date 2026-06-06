@@ -1,96 +1,352 @@
-import bloodRequestsData from "@/assets/fakeData/bloodRequest.json";
+// @/Pages/home/Home.tsx
 import Avatar from "@/components/Avatar";
 import { StyledText } from "@/components/StyledText";
 import { ThemeColors } from "@/constants/themeCollorConstant";
 import { useTheme } from "@/hooks/theme/ThemeContext";
 import { withOpacity } from "@/helpers/withOpacity";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Alert, FlatList, ScrollView, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  Animated,
+  FlatList,
+  ScrollView,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { moderateScale, ScaledSheet } from "react-native-size-matters";
 import BloodRequestCard from "./components/BloodRequestCard";
 import { useRouter } from "expo-router";
 import { PlatformPressable } from "@react-navigation/elements";
+import { useState } from "react";
+import { BloodRequest, useBloodRequest } from "@/context/BloodReqContext";
+
+// ─── Skeleton card ────────────────────────────────────────────────────────────
+
+function SkeletonCard() {
+  const { colors } = useTheme();
+  const shimmer = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmer, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [shimmer]);
+
+  const opacity = shimmer.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.35, 0.7],
+  });
+
+  const bg = colors.thirdBackgroundColor ?? "#2a2a3a";
+
+  return (
+    <Animated.View
+      style={{
+        opacity,
+        backgroundColor: bg,
+        borderRadius: moderateScale(12),
+        padding: moderateScale(14),
+        marginBottom: moderateScale(10),
+        gap: moderateScale(10),
+      }}
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: moderateScale(10),
+        }}
+      >
+        <View
+          style={{
+            width: moderateScale(36),
+            height: moderateScale(36),
+            borderRadius: moderateScale(18),
+            backgroundColor: colors.secondaryTextColor + "44",
+          }}
+        />
+        <View style={{ gap: moderateScale(6), flex: 1 }}>
+          <View
+            style={{
+              height: moderateScale(11),
+              width: "55%",
+              borderRadius: 4,
+              backgroundColor: colors.secondaryTextColor + "44",
+            }}
+          />
+          <View
+            style={{
+              height: moderateScale(10),
+              width: "35%",
+              borderRadius: 4,
+              backgroundColor: colors.secondaryTextColor + "33",
+            }}
+          />
+        </View>
+        <View
+          style={{
+            width: moderateScale(36),
+            height: moderateScale(36),
+            borderRadius: moderateScale(8),
+            backgroundColor: colors.secondaryTextColor + "33",
+          }}
+        />
+      </View>
+      {[80, 60, 45].map((w, i) => (
+        <View
+          key={i}
+          style={{
+            height: moderateScale(10),
+            width: `${w}%`,
+            borderRadius: 4,
+            backgroundColor: colors.secondaryTextColor + "33",
+          }}
+        />
+      ))}
+    </Animated.View>
+  );
+}
+
+// ─── Error state ──────────────────────────────────────────────────────────────
+
+function ErrorState({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  const { colors } = useTheme();
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1.15,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [pulse]);
+
+  return (
+    <View
+      style={{
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: moderateScale(60),
+        gap: moderateScale(14),
+      }}
+    >
+      <Animated.View style={{ transform: [{ scale: pulse }] }}>
+        <MaterialCommunityIcons
+          name="heart-broken"
+          size={moderateScale(52)}
+          color="#e53935"
+        />
+      </Animated.View>
+      <StyledText
+        style={{
+          color: colors.textColor,
+          fontSize: moderateScale(14),
+          fontWeight: "600",
+        }}
+      >
+        Oops! Something went wrong
+      </StyledText>
+      <StyledText
+        style={{
+          color: colors.secondaryTextColor,
+          fontSize: moderateScale(12),
+          textAlign: "center",
+          paddingHorizontal: moderateScale(30),
+        }}
+      >
+        {message}
+      </StyledText>
+      <TouchableOpacity
+        onPress={onRetry}
+        activeOpacity={0.8}
+        style={{
+          backgroundColor: "#e53935",
+          paddingHorizontal: moderateScale(28),
+          paddingVertical: moderateScale(10),
+          borderRadius: moderateScale(20),
+          marginTop: moderateScale(4),
+        }}
+      >
+        <StyledText
+          style={{
+            color: "#fff",
+            fontSize: moderateScale(13),
+            fontWeight: "700",
+          }}
+        >
+          Try Again
+        </StyledText>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
+function EmptyState({ filter }: { filter: string }) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={{
+        alignItems: "center",
+        paddingVertical: moderateScale(50),
+        gap: moderateScale(10),
+      }}
+    >
+      <MaterialCommunityIcons
+        name="blood-bag"
+        size={moderateScale(48)}
+        color={colors.secondaryTextColor}
+      />
+      <StyledText
+        style={{
+          color: colors.secondaryTextColor,
+          fontSize: moderateScale(13),
+          textAlign: "center",
+        }}
+      >
+        {filter === "All"
+          ? "No blood requests at the moment."
+          : `No requests found for blood group ${filter}.`}
+      </StyledText>
+    </View>
+  );
+}
+
+// ─── Home ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
   const { colors } = useTheme();
-  const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const [requests, setRequests] = useState<typeof bloodRequestsData>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<null | string>(null);
+  const { requests, loading, error, fetchAllRequests } = useBloodRequest();
 
+  const [selectedFilter, setSelectedFilter] = useState("All");
+
+  // Initial fetch on mount
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    fetchAllRequests();
+  }, [fetchAllRequests]);
 
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+  // Client-side filter keyed on blood_group_name from the actual model
+  const filteredRequests = useMemo<BloodRequest[]>(() => {
+    if (selectedFilter === "All") return requests;
+    return requests.filter((r) => r.blood_group_name === selectedFilter);
+  }, [requests, selectedFilter]);
 
-        const data = bloodRequestsData;
+  const isLoading = loading.fetchAll;
+  const serverError = error.server;
 
-        if (!Array.isArray(data)) {
-          throw new Error("Invalid data format");
-        }
+  const renderItem = useCallback(
+    ({ item }: { item: BloodRequest }) => <BloodRequestCard request={item} />,
+    [],
+  );
 
-        setRequests(data);
-      } catch (err) {
-        console.error("Failed to load blood requests:", err);
-        setError("Failed to load blood requests. Please try again.");
-        Alert.alert("Error", "Could not load blood requests");
-      } finally {
-        setLoading(false);
-      }
-    };
+  const keyExtractor = useCallback((item: BloodRequest) => item._id, []);
 
-    loadData();
-  }, []);
+  // ── Body content ───────────────────────────────────────────────────────────
+  const renderBody = () => {
+    if (isLoading) {
+      return (
+        <View style={{ marginTop: moderateScale(10) }}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </View>
+      );
+    }
 
-  const renderItem = ({
-    item,
-  }: {
-    item: (typeof bloodRequestsData)[number];
-  }) => <BloodRequestCard request={item} />;
+    if (serverError) {
+      return <ErrorState message={serverError} onRetry={fetchAllRequests} />;
+    }
 
-  return (
-    <View style={{ paddingHorizontal: moderateScale(13) }}>
+    return (
       <FlatList
-        data={requests}
+        data={filteredRequests}
         renderItem={renderItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
         contentContainerStyle={styles.listContent}
         style={{ marginBottom: moderateScale(20) }}
-        ListHeaderComponent={<HeadPart />}
+        scrollEnabled={false} // outer ScrollView handles scrolling
+        ListEmptyComponent={<EmptyState filter={selectedFilter} />}
       />
-    </View>
+    );
+  };
+
+  return (
+    <ScrollView
+      style={{ paddingHorizontal: moderateScale(13) }}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      <HeadPart
+        selectedFilter={selectedFilter}
+        onFilterChange={setSelectedFilter}
+        disabled={isLoading || !!serverError}
+      />
+      {renderBody()}
+    </ScrollView>
   );
 }
 
 const createStyles = (colors: ThemeColors) =>
   ScaledSheet.create({
-    listContent: {},
-    emptyText: {
-      textAlign: "center",
-      fontSize: 16,
-      color: "#777",
-      marginTop: 40,
+    listContent: {
+      paddingBottom: moderateScale(80),
     },
   });
 
-const HeadPart = () => {
+// ─── HeadPart ─────────────────────────────────────────────────────────────────
+
+interface HeadPartProps {
+  selectedFilter: string;
+  onFilterChange: (filter: string) => void;
+  disabled?: boolean;
+}
+
+const HeadPart = ({
+  selectedFilter,
+  onFilterChange,
+  disabled,
+}: HeadPartProps) => {
   const router = useRouter();
   const { colors } = useTheme();
-  const [selectedFilter, setSelectedFilter] = useState("All");
 
   const filters = ["All", "O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
 
-  // ✅ FIXED: added return statement
   return (
     <>
-      {/* Request Blood */}
+      {/* Header row */}
       <View
         style={{
           marginTop: moderateScale(20),
@@ -119,12 +375,7 @@ const HeadPart = () => {
         </View>
         <PlatformPressable
           onPress={() =>
-            router.push({
-              pathname: "/(othersPage)/requestBlood",
-              // params: {
-              //   debtId: data.id,
-              // },
-            })
+            router.push({ pathname: "/(othersPage)/requestBlood" })
           }
         >
           <MaterialCommunityIcons
@@ -135,7 +386,7 @@ const HeadPart = () => {
         </PlatformPressable>
       </View>
 
-      {/* Filter */}
+      {/* Filter chips */}
       <View style={{ marginTop: moderateScale(10) }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View
@@ -145,12 +396,14 @@ const HeadPart = () => {
               gap: moderateScale(5),
             }}
           >
-            {filters.map((filter, index) => {
+            {filters.map((filter) => {
               const isSelected = filter === selectedFilter;
               return (
-                // ✅ BONUS: filter selection now works with state
-                <View
-                  key={index}
+                <TouchableOpacity
+                  key={filter}
+                  activeOpacity={0.7}
+                  disabled={disabled}
+                  onPress={() => onFilterChange(filter)}
                   style={{
                     paddingVertical: moderateScale(4),
                     paddingHorizontal: moderateScale(12),
@@ -160,22 +413,26 @@ const HeadPart = () => {
                     borderWidth: isSelected ? 0 : moderateScale(1),
                     borderColor: colors.cardBorderColor,
                     borderRadius: moderateScale(16),
+                    opacity: disabled ? 0.5 : 1,
                   }}
                 >
                   <StyledText
-                    style={{ color: "red" }}
-                    onPress={() => setSelectedFilter(filter)}
+                    style={{
+                      color: isSelected ? "#e53935" : colors.secondaryTextColor,
+                      fontWeight: isSelected ? "700" : "400",
+                      fontSize: moderateScale(12),
+                    }}
                   >
                     {filter}
                   </StyledText>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
         </ScrollView>
       </View>
 
-      {/* Spacer before list */}
+      {/* Spacer */}
       <View style={{ marginTop: moderateScale(10) }} />
     </>
   );

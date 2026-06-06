@@ -10,6 +10,28 @@ import * as SecureStore from "expo-secure-store";
 import apiClient from "@/config/client";
 import { router } from "expo-router";
 
+// import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// // 1. Storing JSON Data
+// const storeData = async (value) => {
+//   try {
+//     const jsonValue = JSON.stringify(value);
+//     await AsyncStorage.setItem("my_json_key", jsonValue);
+//   } catch (e) {
+//     // saving error
+//   }
+// };
+
+// // 2. Reading JSON Data
+// const getData = async () => {
+//   try {
+//     const jsonValue = await AsyncStorage.getItem("my_json_key");
+//     return jsonValue != null ? JSON.parse(jsonValue) : null;
+//   } catch (e) {
+//     // error reading value
+//   }
+// };
+
 // ─────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────

@@ -6,6 +6,7 @@ import { useFonts } from "expo-font";
 import { LanguageProvider } from "@/hooks/language/LanguageContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { RegisterProvider } from "@/context/RegistrationContext";
+import { BloodRequestProvider } from "@/context/BloodReqContext";
 
 function AppShell() {
   const { colors, config } = useTheme();
@@ -43,14 +44,16 @@ function AppShell() {
 
 export default function RootLayout() {
   return (
-    <RegisterProvider>
-      <AuthProvider>
-        <ThemeProvider>
-          <LanguageProvider>
-            <AppShell />
-          </LanguageProvider>
-        </ThemeProvider>
-      </AuthProvider>
-    </RegisterProvider>
+    <BloodRequestProvider>
+      <RegisterProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppShell />
+            </LanguageProvider>
+          </ThemeProvider>
+        </AuthProvider>
+      </RegisterProvider>
+    </BloodRequestProvider>
   );
 }

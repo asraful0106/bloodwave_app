@@ -14,9 +14,9 @@ import { withOpacity } from "@/helpers/withOpacity";
 import * as Progress from "react-native-progress";
 
 interface BloodRequest {
-  blood_type: string;
+  blood_group_name: string;
   lat: number;
-  lan: number;
+  lng: number;
   created_at: string;
   description: string;
 }
@@ -37,7 +37,7 @@ const BloodRequestCard = ({
   const [showFullDesc, setShowFullDesc] = useState(false);
 
   const lat = request.lat;
-  const lng = request.lan;
+  const lng = request.lng;
 
   const date = new Date(request.created_at).toLocaleDateString("en-GB", {
     day: "2-digit",
@@ -164,7 +164,7 @@ const BloodRequestCard = ({
               borderRadius: moderateScale(16),
             }}
           >
-            {request.blood_type}
+            {request.blood_group_name}
           </StyledText>
           <Entypo
             name="dots-three-horizontal"
