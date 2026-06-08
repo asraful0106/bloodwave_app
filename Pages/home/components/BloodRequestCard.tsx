@@ -4,37 +4,396 @@ import { ThemeColors } from "@/constants/themeCollorConstant";
 import { useTheme } from "@/hooks/theme/ThemeContext";
 import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { TouchableOpacity, View, Platform, Linking, Alert } from "react-native";
+import {
+  TouchableOpacity,
+  View,
+  Platform,
+  Linking,
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+} from "react-native";
 import { moderateScale, ScaledSheet } from "react-native-size-matters";
 import { WebView } from "react-native-webview";
 import * as Clipboard from "expo-clipboard";
-import { Entypo } from "@expo/vector-icons";
+import { Entypo, MaterialCommunityIcons } from "@expo/vector-icons";
 import { withOpacity } from "@/helpers/withOpacity";
-
 import * as Progress from "react-native-progress";
-
-interface BloodRequest {
-  blood_group_name: string;
-  lat: number;
-  lng: number;
-  created_at: string;
-  description: string;
-}
+import { BloodRequest, BloodRequestRequester } from "@/context/BloodReqContext";
+import { useAuth } from "@/context/AuthContext";
 
 interface BloodRequestCardProps {
   request: BloodRequest;
   avatarUrl?: string;
 }
 
+// ─── Contact type → icon + label + action ────────────────────────────────────
+type ContactType = "phone" | "email" | "website" | "social";
+
+const CONTACT_META: Record<
+  ContactType,
+  {
+    icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"];
+    color: string;
+    label: string;
+    scheme: (value: string) => string;
+  }
+> = {
+  phone: {
+    icon: "phone",
+    color: "#2eb97b",
+    label: "Phone",
+    scheme: (v) => `tel:${v}`,
+  },
+  email: {
+    icon: "email-outline",
+    color: "#1976d2",
+    label: "Email",
+    scheme: (v) => `mailto:${v}`,
+  },
+  website: {
+    icon: "web",
+    color: "#7c3aed",
+    label: "Website",
+    scheme: (v) => (v.startsWith("http") ? v : `https://${v}`),
+  },
+  social: {
+    icon: "share-variant-outline",
+    color: "#e53935",
+    label: "Social",
+    scheme: (v) => (v.startsWith("http") ? v : `https://${v}`),
+  },
+};
+
+// ─── ContactModal ─────────────────────────────────────────────────────────────
+interface ContactModalProps {
+  visible: boolean;
+  onClose: () => void;
+  requester: BloodRequestRequester;
+  colors: ThemeColors;
+}
+
+const ContactModal = ({
+  visible,
+  onClose,
+  requester,
+  colors,
+}: ContactModalProps) => {
+  // Only show contacts that are marked public
+  const publicContacts =
+    requester.user_contacts?.filter((c) => c.is_public) ?? [];
+  const hasContacts = publicContacts.length > 0;
+
+  const handleOpen = (type: ContactType, value: string) => {
+    const url = CONTACT_META[type].scheme(value);
+    Linking.canOpenURL(url)
+      .then((ok) => {
+        if (ok) Linking.openURL(url);
+        else Alert.alert("Cannot open", `Unable to open: ${value}`);
+      })
+      .catch(() => Alert.alert("Error", "Something went wrong."));
+  };
+
+  const handleCopy = async (value: string) => {
+    await Clipboard.setStringAsync(value);
+    Alert.alert("Copied", "Contact info copied to clipboard.");
+  };
+
+  const fullName = [requester.f_name, requester.l_name]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      {/* Backdrop */}
+      <Pressable
+        style={{
+          flex: 1,
+          backgroundColor: "rgba(0,0,0,0.55)",
+          justifyContent: "flex-end",
+        }}
+        onPress={onClose}
+      >
+        {/* Sheet — Pressable inside prevents backdrop tap from bubbling up */}
+        <Pressable
+          style={{
+            backgroundColor: colors.secondBackgroundColor,
+            borderTopLeftRadius: moderateScale(24),
+            borderTopRightRadius: moderateScale(24),
+            borderWidth: 1,
+            borderBottomWidth: 0,
+            borderColor: colors.cardBorderColor,
+            paddingBottom: moderateScale(36),
+            maxHeight: "75%",
+          }}
+          onPress={() => {}} // swallow tap so sheet doesn't close on inner press
+        >
+          {/* Drag handle */}
+          <View
+            style={{
+              alignSelf: "center",
+              width: moderateScale(40),
+              height: moderateScale(4),
+              borderRadius: 2,
+              backgroundColor: colors.cardBorderColor,
+              marginTop: moderateScale(12),
+              marginBottom: moderateScale(20),
+            }}
+          />
+
+          {/* Header */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: moderateScale(20),
+              marginBottom: moderateScale(20),
+            }}
+          >
+            <View style={{ gap: moderateScale(2) }}>
+              <StyledText
+                style={{
+                  fontSize: moderateScale(17),
+                  fontWeight: "700",
+                  color: colors.textColor,
+                }}
+              >
+                Contact Info
+              </StyledText>
+              <StyledText
+                style={{
+                  fontSize: moderateScale(12),
+                  color: colors.thirdTextColor,
+                }}
+              >
+                {fullName}
+                {requester.blood_group_name
+                  ? `  ·  ${requester.blood_group_name}`
+                  : ""}
+              </StyledText>
+            </View>
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={10}
+              style={{
+                backgroundColor: colors.thirdBackgroundColor,
+                borderRadius: moderateScale(20),
+                padding: moderateScale(6),
+              }}
+            >
+              <Entypo
+                name="cross"
+                size={moderateScale(18)}
+                color={colors.textColor}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Divider */}
+          <View
+            style={{
+              height: 1,
+              backgroundColor: colors.cardBorderColor,
+              marginHorizontal: moderateScale(20),
+              marginBottom: moderateScale(16),
+            }}
+          />
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingHorizontal: moderateScale(20),
+              gap: moderateScale(10),
+            }}
+          >
+            {hasContacts ? (
+              publicContacts.map((contact) => {
+                const meta =
+                  CONTACT_META[contact.type as ContactType] ??
+                  CONTACT_META.social;
+                return (
+                  <View
+                    key={contact._id}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      backgroundColor: colors.thirdBackgroundColor,
+                      borderRadius: moderateScale(14),
+                      borderWidth: 1,
+                      borderColor: colors.cardBorderColor,
+                      padding: moderateScale(14),
+                      gap: moderateScale(14),
+                    }}
+                  >
+                    {/* Icon badge */}
+                    <View
+                      style={{
+                        width: moderateScale(42),
+                        height: moderateScale(42),
+                        borderRadius: moderateScale(12),
+                        backgroundColor: withOpacity(meta.color, 0.12),
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <MaterialCommunityIcons
+                        name={meta.icon}
+                        size={moderateScale(20)}
+                        color={meta.color}
+                      />
+                    </View>
+
+                    {/* Label + value */}
+                    <View style={{ flex: 1 }}>
+                      <StyledText
+                        style={{
+                          fontSize: moderateScale(10),
+                          color: colors.thirdTextColor,
+                          fontWeight: "600",
+                          textTransform: "uppercase",
+                          letterSpacing: 0.8,
+                          marginBottom: moderateScale(2),
+                        }}
+                      >
+                        {contact.title || meta.label}
+                      </StyledText>
+                      <StyledText
+                        style={{
+                          fontSize: moderateScale(13),
+                          color: colors.textColor,
+                          fontWeight: "500",
+                        }}
+                        numberOfLines={1}
+                      >
+                        {contact.value}
+                      </StyledText>
+                    </View>
+
+                    {/* Action buttons */}
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        gap: moderateScale(8),
+                        alignItems: "center",
+                      }}
+                    >
+                      {/* Copy */}
+                      <TouchableOpacity
+                        onPress={() => handleCopy(contact.value)}
+                        hitSlop={6}
+                        style={{
+                          padding: moderateScale(6),
+                          borderRadius: moderateScale(8),
+                          backgroundColor: withOpacity(
+                            colors.secondaryColor,
+                            0.1,
+                          ),
+                        }}
+                      >
+                        <MaterialCommunityIcons
+                          name="content-copy"
+                          size={moderateScale(15)}
+                          color={colors.secondaryColor}
+                        />
+                      </TouchableOpacity>
+
+                      {/* Open / dial */}
+                      <TouchableOpacity
+                        onPress={() =>
+                          handleOpen(contact.type as ContactType, contact.value)
+                        }
+                        hitSlop={6}
+                        style={{
+                          padding: moderateScale(6),
+                          borderRadius: moderateScale(8),
+                          backgroundColor: withOpacity(meta.color, 0.12),
+                        }}
+                      >
+                        <MaterialCommunityIcons
+                          name="arrow-top-right"
+                          size={moderateScale(15)}
+                          color={meta.color}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            ) : (
+              // ── Empty state ────────────────────────────────────────────────
+              <View
+                style={{
+                  alignItems: "center",
+                  paddingVertical: moderateScale(40),
+                  gap: moderateScale(12),
+                }}
+              >
+                <View
+                  style={{
+                    width: moderateScale(64),
+                    height: moderateScale(64),
+                    borderRadius: moderateScale(32),
+                    backgroundColor: withOpacity(colors.thirdTextColor, 0.1),
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name="phone-off"
+                    size={moderateScale(28)}
+                    color={colors.thirdTextColor}
+                  />
+                </View>
+                <StyledText
+                  style={{
+                    fontSize: moderateScale(14),
+                    fontWeight: "600",
+                    color: colors.textColor,
+                  }}
+                >
+                  No contact info available
+                </StyledText>
+                <StyledText
+                  style={{
+                    fontSize: moderateScale(12),
+                    color: colors.thirdTextColor,
+                    textAlign: "center",
+                    lineHeight: moderateScale(18),
+                    paddingHorizontal: moderateScale(20),
+                  }}
+                >
+                  This requester hasn't shared any public contact details yet.
+                </StyledText>
+              </View>
+            )}
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+};
+
+// ─── BloodRequestCard ─────────────────────────────────────────────────────────
 const BloodRequestCard = ({
   request,
   avatarUrl = "https://i.pravatar.cc/150?u=default",
 }: BloodRequestCardProps) => {
+  const { userData } = useAuth();
+  const postUserData = request.user_id as BloodRequestRequester;
   const { colors } = useTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [showFullDesc, setShowFullDesc] = useState(false);
+  const [contactVisible, setContactVisible] = useState(false);
 
   const lat = request.lat;
   const lng = request.lng;
@@ -45,30 +404,19 @@ const BloodRequestCard = ({
     year: "2-digit",
   });
 
-  // ── Opens the phone's native maps app ──────────────────────────────────────
   const openInMaps = () => {
     const label = "Blood Request Location";
-
-    // iOS → Apple Maps, Android → Google Maps / any installed maps app
     const url = Platform.select({
       ios: `maps:0,0?q=${label}@${lat},${lng}`,
       android: `geo:${lat},${lng}?q=${lat},${lng}(${label})`,
     });
-
-    // Fallback: open in browser if no maps app found
     const browserUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}&zoom=16`;
 
     Linking.canOpenURL(url!)
-      .then((supported) => {
-        if (supported) {
-          Linking.openURL(url!);
-        } else {
-          Linking.openURL(browserUrl);
-        }
-      })
-      .catch(() => {
-        Alert.alert("Error", "Could not open maps application.");
-      });
+      .then((supported) =>
+        supported ? Linking.openURL(url!) : Linking.openURL(browserUrl),
+      )
+      .catch(() => Alert.alert("Error", "Could not open maps application."));
   };
 
   const mapHtml = `
@@ -87,243 +435,229 @@ const BloodRequestCard = ({
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     var map = L.map('map', {
-      zoomControl: false,
-      attributionControl: false,
-      dragging: false,
-      touchZoom: false,
-      scrollWheelZoom: false,
-      doubleClickZoom: false,
-      boxZoom: false,
-      keyboard: false
+      zoomControl: false, attributionControl: false,
+      dragging: false, touchZoom: false, scrollWheelZoom: false,
+      doubleClickZoom: false, boxZoom: false, keyboard: false
     }).setView([${lat}, ${lng}], 15);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
-    }).addTo(map);
-
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
     L.circleMarker([${lat}, ${lng}], {
-      radius: 18,
-      color: '#e53935',
-      fillColor: '#e53935',
-      fillOpacity: 0.15,
-      weight: 2
+      radius: 18, color: '#e53935', fillColor: '#e53935', fillOpacity: 0.15, weight: 2
     }).addTo(map);
-
     L.circleMarker([${lat}, ${lng}], {
-      radius: 9,
-      color: '#ffffff',
-      fillColor: '#e53935',
-      fillOpacity: 1,
-      weight: 3
+      radius: 9, color: '#ffffff', fillColor: '#e53935', fillOpacity: 1, weight: 3
     }).addTo(map);
-
     setTimeout(function() { map.invalidateSize(); }, 300);
     setTimeout(function() { map.invalidateSize(); }, 1000);
   </script>
 </body>
-</html>
-  `;
+</html>`;
+
   const copyToClipboard = async () => {
     await Clipboard.setStringAsync(request.description);
   };
 
+  const isValidRequestToDonate =
+    userData._id === postUserData._id ||
+    userData.blood_group_name === postUserData.blood_group_name;
+
   return (
-    <View style={styles.card}>
-      {/* ── Header ── */}
-      <View style={styles.header}>
-        {/* user information */}
-        <View
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Avatar imageUrl={avatarUrl} />
-          <View style={styles.userInfo}>
-            <StyledText style={styles.userName}>User Name</StyledText>
-            <StyledText style={styles.date}>{date}</StyledText>
+    <>
+      <View style={styles.card}>
+        {/* ── Header ── */}
+        <View style={styles.header}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Avatar imageUrl={postUserData.user_image?.link ?? avatarUrl} />
+            <View style={styles.userInfo}>
+              <StyledText style={styles.userName}>
+                {[postUserData.f_name, postUserData.l_name]
+                  .filter(Boolean)
+                  .join(" ")}
+              </StyledText>
+              <StyledText style={styles.date}>{date}</StyledText>
+            </View>
+          </View>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: moderateScale(10),
+            }}
+          >
+            <StyledText
+              style={{
+                paddingVertical: moderateScale(4),
+                paddingHorizontal: moderateScale(12),
+                backgroundColor: withOpacity("#e53935", 0.15),
+                color: "red",
+                borderRadius: moderateScale(16),
+              }}
+            >
+              {request.blood_group_name}
+            </StyledText>
+            <Entypo
+              name="dots-three-horizontal"
+              size={moderateScale(14)}
+              color={colors.textColor}
+            />
           </View>
         </View>
-        {/* blood type & action */}
+
+        {/* ── Description ── */}
+        <TouchableOpacity
+          onPress={() => setShowFullDesc((p) => !p)}
+          onLongPress={() => showFullDesc && copyToClipboard()}
+        >
+          <View style={styles.descriptionContainer}>
+            <StyledText
+              style={styles.description}
+              numberOfLines={showFullDesc ? undefined : 3}
+              ellipsizeMode="tail"
+            >
+              {request.description}
+            </StyledText>
+            <TouchableOpacity
+              onPress={() => setShowFullDesc((p) => !p)}
+              activeOpacity={0.7}
+            >
+              <StyledText style={styles.moreLess}>
+                {showFullDesc
+                  ? ""
+                  : request.description.length > 20
+                    ? "more"
+                    : ""}
+              </StyledText>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+
+        {/* ── Map ── */}
+        <View style={styles.mapContainer}>
+          <WebView
+            source={{ html: mapHtml }}
+            style={{ flex: 1 }}
+            javaScriptEnabled
+            domStorageEnabled
+            originWhitelist={["*"]}
+            mixedContentMode="always"
+            onError={(e) => console.warn("WebView error:", e.nativeEvent)}
+          />
+          <TouchableOpacity
+            style={styles.openMapsButton}
+            onPress={openInMaps}
+            activeOpacity={0.85}
+          >
+            <StyledText style={styles.openMapsText}>📍 Open in Maps</StyledText>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Footer actions ── */}
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: moderateScale(10),
+            marginTop: moderateScale(10),
           }}
         >
-          <StyledText
+          {/* Progress */}
+          <View
             style={{
-              paddingVertical: moderateScale(4),
-              paddingHorizontal: moderateScale(12),
-              backgroundColor: withOpacity("#e53935", 0.15),
-              color: "red",
-              borderRadius: moderateScale(16),
+              flexDirection: "row",
+              gap: moderateScale(5),
+              alignItems: "center",
             }}
           >
-            {request.blood_group_name}
-          </StyledText>
-          <Entypo
-            name="dots-three-horizontal"
-            size={moderateScale(14)}
-            color={colors.textColor}
-          />
-        </View>
-      </View>
-
-      {/* ── Description ── */}
-      <TouchableOpacity
-        onPress={() => {
-          // if (showFullDesc) {
-          //   setShowFullDesc((p) => !p);
-          // }
-          setShowFullDesc((p) => !p);
-        }}
-        onLongPress={() => {
-          if (showFullDesc) {
-            copyToClipboard();
-          }
-        }}
-      >
-        <View style={styles.descriptionContainer}>
-          <StyledText
-            style={styles.description}
-            numberOfLines={showFullDesc ? undefined : 3}
-            ellipsizeMode="tail"
-          >
-            {request.description}
-          </StyledText>
-          <TouchableOpacity
-            onPress={() => setShowFullDesc((p) => !p)}
-            activeOpacity={0.7}
-          >
-            <StyledText style={styles.moreLess}>
-              {showFullDesc ? "" : "more"}
-            </StyledText>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-
-      {/* ── Map ── */}
-      <View style={styles.mapContainer}>
-        <WebView
-          source={{ html: mapHtml }}
-          style={{ flex: 1 }}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          originWhitelist={["*"]}
-          mixedContentMode="always"
-          onError={(e) => console.warn("WebView error:", e.nativeEvent)}
-        />
-
-        {/* ── Open in Maps button overlaid on the map ── */}
-        <TouchableOpacity
-          style={styles.openMapsButton}
-          onPress={openInMaps}
-          activeOpacity={0.85}
-        >
-          <StyledText style={styles.openMapsText}>📍 Open in Maps</StyledText>
-        </TouchableOpacity>
-      </View>
-
-      {/* other actions */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginTop: moderateScale(10),
-        }}
-      >
-        {/* Progressbar */}
-        <View
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            gap: moderateScale(5),
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Progress.Bar
-            progress={0.4}
-            height={moderateScale(6.5)}
-            width={moderateScale(120)}
-            borderWidth={0.3}
-            unfilledColor={colors.bodyBackground}
-            color={colors.secondaryColor}
-            borderColor={colors.secondaryColor}
-          />
-          <StyledText
-            style={{
-              fontSize: moderateScale(12, 0.3),
-              fontWeight: "bold",
-              color: colors.thirdTextColor,
-            }}
-          >
-            3/5
-          </StyledText>
-        </View>
-        {/* actions button */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: moderateScale(10),
-          }}
-        >
-          {/* Donate Blood Button */}
-          <TouchableOpacity
-            style={{
-              backgroundColor: "red",
-              paddingVertical: moderateScale(4),
-              paddingHorizontal: moderateScale(8),
-              borderRadius: moderateScale(6),
-            }}
-            // disabled={true}
-          >
+            <Progress.Bar
+              progress={
+                request.units_required > 0
+                  ? request.qty / request.units_required
+                  : 0
+              }
+              height={moderateScale(6.5)}
+              width={moderateScale(120)}
+              borderWidth={0.3}
+              unfilledColor={colors.bodyBackground}
+              color={colors.secondaryColor}
+              borderColor={colors.secondaryColor}
+            />
             <StyledText
               style={{
-                color: "white",
-                fontSize: moderateScale(10, 0.3),
+                fontSize: moderateScale(12, 0.3),
                 fontWeight: "bold",
+                color: colors.thirdTextColor,
               }}
             >
-              Donate
+              {request.qty}/{request.units_required}
             </StyledText>
-          </TouchableOpacity>
+          </View>
 
-          {/* View Contact Button */}
-          <TouchableOpacity
+          {/* Buttons */}
+          <View
             style={{
-              backgroundColor: colors.secondaryColor,
-              paddingVertical: moderateScale(4),
-              paddingHorizontal: moderateScale(8),
-              borderRadius: moderateScale(6),
-            }}
-            onPress={() => {
-              console.log("View Contact Pressed!");
+              flexDirection: "row",
+              alignItems: "center",
+              gap: moderateScale(10),
             }}
           >
-            <StyledText
+            {/* Donate */}
+            <TouchableOpacity
               style={{
-                color: "white",
-                fontSize: moderateScale(10, 0.3),
-                fontWeight: "bold",
+                backgroundColor: isValidRequestToDonate
+                  ? withOpacity("#e53935", 0.3)
+                  : "#e53935",
+                paddingVertical: moderateScale(4),
+                paddingHorizontal: moderateScale(8),
+                borderRadius: moderateScale(6),
               }}
+              disabled={isValidRequestToDonate}
             >
-              Contact
-            </StyledText>
-          </TouchableOpacity>
+              <StyledText
+                style={{
+                  color: "white",
+                  fontSize: moderateScale(10, 0.3),
+                  fontWeight: "bold",
+                }}
+              >
+                Donate
+              </StyledText>
+            </TouchableOpacity>
+
+            {/* Contact */}
+            <TouchableOpacity
+              style={{
+                backgroundColor: colors.secondaryColor,
+                paddingVertical: moderateScale(4),
+                paddingHorizontal: moderateScale(8),
+                borderRadius: moderateScale(6),
+              }}
+              onPress={() => setContactVisible(true)}
+            >
+              <StyledText
+                style={{
+                  color: "white",
+                  fontSize: moderateScale(10, 0.3),
+                  fontWeight: "bold",
+                }}
+              >
+                Contact
+              </StyledText>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-    </View>
+
+      {/* ── Contact bottom sheet ── */}
+      <ContactModal
+        visible={contactVisible}
+        onClose={() => setContactVisible(false)}
+        requester={postUserData}
+        colors={colors}
+      />
+    </>
   );
 };
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const createStyles = (colors: ThemeColors) =>
   ScaledSheet.create({
     card: {
@@ -335,7 +669,6 @@ const createStyles = (colors: ThemeColors) =>
       padding: moderateScale(16),
     },
     header: {
-      display: "flex",
       flexDirection: "row",
       justifyContent: "space-between",
       marginBottom: moderateScale(12),
@@ -380,11 +713,10 @@ const createStyles = (colors: ThemeColors) =>
       position: "absolute",
       bottom: moderateScale(10),
       right: moderateScale(10),
-      backgroundColor: "rgba(0, 0, 0, 0.65)",
+      backgroundColor: "rgba(0,0,0,0.65)",
       paddingHorizontal: moderateScale(12),
       paddingVertical: moderateScale(7),
       borderRadius: moderateScale(16),
-      // subtle shadow so it pops over the map
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.4,

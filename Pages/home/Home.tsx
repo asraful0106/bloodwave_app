@@ -251,6 +251,10 @@ export default function Home() {
 
   const { requests, loading, error, fetchAllRequests } = useBloodRequest();
 
+  const pendingRequests = requests.filter(
+    (item) => item.blood_request_status === "pending",
+  );
+
   const [selectedFilter, setSelectedFilter] = useState("All");
 
   // Initial fetch on mount
@@ -260,9 +264,9 @@ export default function Home() {
 
   // Client-side filter keyed on blood_group_name from the actual model
   const filteredRequests = useMemo<BloodRequest[]>(() => {
-    if (selectedFilter === "All") return requests;
-    return requests.filter((r) => r.blood_group_name === selectedFilter);
-  }, [requests, selectedFilter]);
+    if (selectedFilter === "All") return pendingRequests;
+    return pendingRequests.filter((r) => r.blood_group_name === selectedFilter);
+  }, [pendingRequests, selectedFilter]);
 
   const isLoading = loading.fetchAll;
   const serverError = error.server;
