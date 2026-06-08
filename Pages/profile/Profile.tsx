@@ -1,32 +1,40 @@
 /**
- * Profile.tsx  — Main profile page
+ * Profile.tsx  — Main profile page (API-connected)
  *
- * Orchestrates all sub-components:
- *   ProfileHeader        → avatar, name, blood group, donor toggle
- *   PersonalInfoSection  → edit personal details
- *   PrivacySection       → privacy toggles + contacts
- *   MyBloodRequestsSection → manage own blood requests
- *   AccountSection       → password, locations, danger zone
+ * All real API calls wired up against the backend routes:
+ *   GET    /users/me                          → load profile
+ *   PATCH  /users/:id                         → update scalar fields + image upload
+ *   PATCH  /users/:id/donor-profile           → toggle availability / donor info
+ *   PATCH  /users/:id/donor-privacy           → privacy toggles
+ *   POST   /users/:id/locations               → add location
+ *   PATCH  /users/:id/locations/:locationId   → update location
+ *   DELETE /users/:id/locations/:locationId   → delete location
+ *   POST   /users/:id/contacts                → add contact
+ *   PATCH  /users/:id/contacts/:contactId     → update contact
+ *   DELETE /users/:id/contacts/:contactId     → delete contact
+ *   DELETE /users/:id                         → delete account
  *
- * Fake data: @/assets/fakeData/myProfile.json
- * To switch to real API: replace the loadData() body — shape is identical.
+ * Image retrieval:  GET  BASE_URL/image/:image_id
  *
- * Real-life cases handled at page level:
- *  ✅ Loading skeleton
- *  ✅ Error + retry
- *  ✅ Unverified email banner (action to resend verification)
- *  ✅ Suspended account banner
- *  ✅ Section tab navigation (scroll to section)
- *  ✅ Avatar update (placeholder — swap with image picker)
+ * Endpoints with no backend yet are tagged: // NEED_API
  */
 
-import profileData from "@/assets/fakeData/myProfile.json";
 import { StyledText } from "@/components/StyledText";
+import apiClient from "@/config/client";
 import { ThemeColors } from "@/constants/themeCollorConstant";
+import { useAuth } from "@/context/AuthContext";
 import { withOpacity } from "@/helpers/withOpacity";
 import { useTheme } from "@/hooks/theme/ThemeContext";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import * as ImagePicker from "expo-image-picker";
+import { router } from "expo-router";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -42,27 +50,114 @@ import { PersonalInfoSection } from "./components/PersonalInfoSection";
 import { PrivacySection } from "./components/PrivacySection";
 import { ProfileHeader } from "./components/ProfileHeader";
 
-// ─── Types (DB schema) ──────────────────────────────────────────────────────
+// ─── Types (mirrors DB schema) ───────────────────────────────────────────────
 
-interface UserImage { id: string; user_id: string; link: string; provider: string; is_primary: boolean; meta: any; }
-interface DonorProfile { id: string; user_id: string; is_available: boolean; inactive_until: string | null; last_donation_date: string | null; next_eligible_date: string | null; total_donations: number; }
-interface PrivacySettings { id: string; user_id: string; show_name: boolean; show_gender: boolean; show_age: boolean; show_phone: boolean; show_last_donation: boolean; emergency_only: boolean; allow_inapp_call: boolean; allow_chat: boolean; }
-interface UserLocation { id: string; user_id: string; address_text: string; city: string | null; lat: number; lng: number; is_primary: boolean; }
-interface UserContact { id: string; user_id: string; type: "phone" | "website" | "social"; title: string; value: string; is_public: boolean; }
-interface BloodRequest { id: string; user_id: string; blood_group_name: string; description: string; units_required: number; units_fulfilled: number; urgency_level: "NORMAL" | "URGENT" | "EMERGENCY"; patient_type: string; needed_by: string; status: "OPEN" | "FULFILLED" | "CANCELLED" | "EXPIRED"; share_token: string | null; created_at: string; location_label: string; donors_count: number; }
-interface User { id: string; f_name: string; l_name: string; phone: string; email: string; user_role: string; gender: "MALE" | "FEMALE" | "OTHER"; date_of_birth: string; blood_group_id: string; blood_group_name: string; is_verified: boolean; status: string; created_by: string; institution_id: string | null; created_at: string; updated_at: string; }
+interface UserImage {
+  link: string;
+  provider: string;
+  is_primary: boolean;
+  meta: { width: number; height: number };
+}
 
-interface ProfileData {
-  user: User;
+interface DonorProfile {
+  is_available: boolean;
+  inactive_until: string | null;
+  last_donation_date: string | null;
+  next_eligible_date: string | null;
+  total_donations: number;
+}
+
+interface PrivacySettings {
+  show_name: boolean;
+  show_gender: boolean;
+  show_age: boolean;
+  show_phone: boolean;
+  show_last_donation: boolean;
+  emergency_only: boolean;
+  allow_inapp_call: boolean;
+  allow_chat: boolean;
+}
+
+interface UserLocation {
+  _id: string;
+  address_text: string;
+  city: string;
+  lat: number;
+  lng: number;
+  is_primary: boolean;
+}
+
+interface UserContact {
+  _id: string;
+  type: "phone" | "website" | "social";
+  title: string;
+  value: string;
+  is_public: boolean;
+}
+
+interface BloodRequest {
+  id: string;
+  blood_group_name: string;
+  description: string;
+  units_required: number;
+  units_fulfilled: number;
+  urgency_level: "NORMAL" | "URGENT" | "EMERGENCY";
+  patient_type: string;
+  needed_by: string;
+  status: "OPEN" | "FULFILLED" | "CANCELLED" | "EXPIRED";
+  share_token: string | null;
+  created_at: string;
+  location_label: string;
+  donors_count: number;
+}
+
+export interface User {
+  _id: string;
+  f_name: string;
+  l_name: string;
+  phone: string;
+  email: string;
+  role: string;
+  gender: "MALE" | "FEMALE" | "OTHER";
+  date_of_birth: string;
+  blood_group_name: string;
+  is_verified: boolean;
+  status: string;
+  created_by: string;
+  institution_id: string | null;
+  created_at: string;
+  updated_at: string;
   user_image: UserImage | null;
   donor_profile: DonorProfile;
   donor_privacy_settings: PrivacySettings;
   user_locations: UserLocation[];
   user_contacts: UserContact[];
-  blood_requests: BloodRequest[];
 }
 
-// ─── Section tabs ────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Map a backend UserContact (uses _id) → the shape PrivacySection expects (uses id).
+ * This avoids touching PrivacySection's internal types.
+ */
+const toContactVM = (c: UserContact) => ({
+  id: c._id,
+  type: c.type,
+  title: c.title,
+  value: c.value,
+  is_public: c.is_public,
+});
+
+const toLocationVM = (l: UserLocation) => ({
+  id: l._id,
+  address_text: l.address_text,
+  city: l.city ?? null,
+  lat: l.lat,
+  lng: l.lng,
+  is_primary: l.is_primary,
+});
+
+// ─── Section tabs ─────────────────────────────────────────────────────────────
 
 const TABS = [
   { key: "info", label: "Info", icon: "account" },
@@ -73,35 +168,55 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
-// ─── Main component ──────────────────────────────────────────────────────────
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function Profile() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const scrollRef = useRef<ScrollView>(null);
+  const { userData, logout, refreshUser, accessToken } = useAuth();
 
-  const [data, setData] = useState<ProfileData | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("info");
-  const sectionRefs = useRef<Record<TabKey, number>>({ info: 0, privacy: 0, requests: 0, account: 0 });
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  // ── Load data (replace with real API) ──────────────────────────────────
-  const loadData = async () => {
+  const sectionRefs = useRef<Record<TabKey, number>>({
+    info: 0,
+    privacy: 0,
+    requests: 0,
+    account: 0,
+  });
+
+  // ── Load profile ────────────────────────────────────────────────────────────
+
+  const loadProfile = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      await new Promise((r) => setTimeout(r, 1000)); // simulate network
-      // ✅ Replace with: const res = await fetch('/api/profile'); const d = await res.json();
-      setData(profileData as ProfileData);
-    } catch {
-      setError("Could not load your profile.");
+
+      const { data } = await apiClient.get("/users/me", {
+        headers: {
+          accessToken: accessToken,
+        },
+      });
+      setUser(data.data);
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Could not load your profile.";
+      console.log("loadProfile: ", err);
+      setError(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   const scrollToSection = (key: TabKey) => {
     setActiveTab(key);
@@ -109,131 +224,555 @@ export default function Profile() {
     scrollRef.current?.scrollTo({ y: y - moderateScale(60), animated: true });
   };
 
-  // ── Handlers (in real app these call the API) ──────────────────────────
+  // ── Avatar / Image upload ───────────────────────────────────────────────────
 
   const handleAvatarEdit = () => {
     Alert.alert("Change Photo", "Choose an option", [
-      { text: "Take Photo", onPress: () => Alert.alert("Camera — integrate expo-image-picker") },
-      { text: "Choose from Gallery", onPress: () => Alert.alert("Gallery — integrate expo-image-picker") },
-      { text: "Remove Photo", style: "destructive", onPress: () => Alert.alert("Photo removed") },
+      {
+        text: "Take Photo",
+        onPress: async () => {
+          const perm = await ImagePicker.requestCameraPermissionsAsync();
+          if (!perm.granted) {
+            Alert.alert(
+              "Permission required",
+              "Camera access is needed to take a photo.",
+            );
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+          });
+          if (!result.canceled) uploadAvatar(result.assets[0]);
+        },
+      },
+      {
+        text: "Choose from Gallery",
+        onPress: async () => {
+          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (!perm.granted) {
+            Alert.alert(
+              "Permission required",
+              "Photo library access is needed.",
+            );
+            return;
+          }
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+          });
+          if (!result.canceled) uploadAvatar(result.assets[0]);
+        },
+      },
       { text: "Cancel", style: "cancel" },
     ]);
   };
 
-  const handleToggleAvailability = (next: boolean) => {
-    if (!data) return;
-    setData((p) => p ? { ...p, donor_profile: { ...p.donor_profile, is_available: next } } : p);
-    // API: PATCH /donor-profile { is_available: next }
+  const uploadAvatar = async (asset: ImagePicker.ImagePickerAsset) => {
+    if (!user) return;
+    try {
+      setUploadingAvatar(true);
+
+      const formData = new FormData();
+      formData.append("image", {
+        uri: asset.uri,
+        type: asset.mimeType ?? "image/jpeg",
+        name: asset.fileName ?? "avatar.jpg",
+      } as any);
+
+      const { data } = await apiClient.patch(`/users/${user._id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setUser(data.data);
+      Alert.alert("✅ Photo updated successfully.");
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to update photo.";
+      Alert.alert("Upload failed", message);
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
-  const handleSavePersonalInfo = (updated: Partial<User>) => {
-    if (!data) return;
-    setData((p) => p ? { ...p, user: { ...p.user, ...updated } } : p);
-    // API: PATCH /users/:id { ...updated }
+  // ── Toggle donor availability ───────────────────────────────────────────────
+
+  const handleToggleAvailability = async (next: boolean) => {
+    if (!user) return;
+    // Optimistic update
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            donor_profile: { ...prev.donor_profile, is_available: next },
+          }
+        : prev,
+    );
+    try {
+      await apiClient.patch(`/users/${user._id}/donor-profile`, {
+        is_available: next,
+      });
+    } catch (err: any) {
+      // Rollback on error
+      setUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              donor_profile: { ...prev.donor_profile, is_available: !next },
+            }
+          : prev,
+      );
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to update availability.";
+      Alert.alert("Error", message);
+    }
   };
 
-  const handlePrivacyChange = (updated: PrivacySettings) => {
-    if (!data) return;
-    setData((p) => p ? { ...p, donor_privacy_settings: updated } : p);
-    // API: PATCH /donor-privacy-settings/:id { ...updated }
+  // ── Personal info save ──────────────────────────────────────────────────────
+
+  const handleSavePersonalInfo = async (updated: Partial<User>) => {
+    if (!user) return;
+    const prev = { ...user };
+    // Optimistic update
+    setUser((p) => (p ? { ...p, ...updated } : p));
+    try {
+      const { data } = await apiClient.patch(`/users/${user._id}`, updated);
+      setUser(data.data);
+      // Sync AuthContext so userData stays fresh
+      await refreshUser();
+    } catch (err: any) {
+      // Rollback
+      setUser(prev);
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to save changes.";
+      Alert.alert("Error", message);
+    }
   };
 
-  const handleContactsChange = (updated: UserContact[]) => {
-    if (!data) return;
-    setData((p) => p ? { ...p, user_contacts: updated } : p);
-    // API: PUT /user-contacts (full replacement or individual PATCH/DELETE)
+  // ── Privacy settings ────────────────────────────────────────────────────────
+
+  const handlePrivacyChange = async (updated: PrivacySettings) => {
+    if (!user) return;
+    const prev = user.donor_privacy_settings;
+    setUser((p) => (p ? { ...p, donor_privacy_settings: updated } : p));
+    try {
+      await apiClient.patch(`/users/${user._id}/donor-privacy`, updated);
+    } catch (err: any) {
+      setUser((p) => (p ? { ...p, donor_privacy_settings: prev } : p));
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to update privacy settings.";
+      Alert.alert("Error", message);
+    }
   };
 
-  const handleBloodRequestStatusChange = (id: string, status: BloodRequest["status"]) => {
-    if (!data) return;
-    setData((p) => p ? { ...p, blood_requests: p.blood_requests.map(r => r.id === id ? { ...r, status } : r) } : p);
-    // API: PATCH /blood-requests/:id { status }
+  // ── Contacts ────────────────────────────────────────────────────────────────
+  // PrivacySection manages contacts locally and calls these when adding/removing.
+  // We diff against the current list to figure out what API call to make.
+
+  const handleContactAdd = async (contact: {
+    type: "phone" | "website" | "social";
+    title: string;
+    value: string;
+    is_public: boolean;
+  }) => {
+    if (!user) return;
+    try {
+      const { data } = await apiClient.post(
+        `/users/${user._id}/contacts`,
+        contact,
+      );
+      // data.data is the full updated contacts array
+      setUser((p) => (p ? { ...p, user_contacts: data.data } : p));
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to add contact.";
+      Alert.alert("Error", message);
+      throw err; // bubble up so PrivacySection can rollback
+    }
   };
 
-  const handleLocationsChange = (updated: UserLocation[]) => {
-    if (!data) return;
-    setData((p) => p ? { ...p, user_locations: updated } : p);
+  const handleContactDelete = async (contactId: string) => {
+    if (!user) return;
+    const prev = user.user_contacts;
+    setUser((p) =>
+      p
+        ? {
+            ...p,
+            user_contacts: p.user_contacts.filter((c) => c._id !== contactId),
+          }
+        : p,
+    );
+    try {
+      const { data } = await apiClient.delete(
+        `/users/${user._id}/contacts/${contactId}`,
+      );
+      setUser((p) => (p ? { ...p, user_contacts: data.data } : p));
+    } catch (err: any) {
+      setUser((p) => (p ? { ...p, user_contacts: prev } : p));
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to delete contact.";
+      Alert.alert("Error", message);
+    }
   };
 
-  const handleChangePassword = async (current: string, next: string): Promise<boolean> => {
-    await new Promise((r) => setTimeout(r, 600));
-    // API: POST /auth/change-password { current_password, new_password }
-    return current.length > 0; // mock: always succeeds if current is non-empty
+  const handleContactTogglePublic = async (
+    contactId: string,
+    is_public: boolean,
+  ) => {
+    if (!user) return;
+    const prev = user.user_contacts;
+    setUser((p) =>
+      p
+        ? {
+            ...p,
+            user_contacts: p.user_contacts.map((c) =>
+              c._id === contactId ? { ...c, is_public } : c,
+            ),
+          }
+        : p,
+    );
+    try {
+      const { data } = await apiClient.patch(
+        `/users/${user._id}/contacts/${contactId}`,
+        { is_public },
+      );
+      setUser((p) => (p ? { ...p, user_contacts: data.data } : p));
+    } catch (err: any) {
+      setUser((p) => (p ? { ...p, user_contacts: prev } : p));
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to update contact.";
+      Alert.alert("Error", message);
+    }
   };
 
-  const handleDeactivate = () => {
-    Alert.alert("Account deactivated. (Mock)");
-    // API: POST /auth/deactivate
+  // ── Locations ───────────────────────────────────────────────────────────────
+
+  const handleLocationAdd = async (location: Omit<UserLocation, "_id">) => {
+    if (!user) return;
+    try {
+      const { data } = await apiClient.post(
+        `/users/${user._id}/locations`,
+        location,
+      );
+      setUser((p) => (p ? { ...p, user_locations: data.data } : p));
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to add location.";
+      Alert.alert("Error", message);
+      throw err;
+    }
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert("Account deleted. (Mock)");
-    // API: DELETE /users/:id
+  const handleLocationSetPrimary = async (locationId: string) => {
+    if (!user) return;
+    const prev = user.user_locations;
+    setUser((p) =>
+      p
+        ? {
+            ...p,
+            user_locations: p.user_locations.map((l) => ({
+              ...l,
+              is_primary: l._id === locationId,
+            })),
+          }
+        : p,
+    );
+    try {
+      const { data } = await apiClient.patch(
+        `/users/${user._id}/locations/${locationId}`,
+        { is_primary: true },
+      );
+      setUser((p) => (p ? { ...p, user_locations: data.data } : p));
+    } catch (err: any) {
+      setUser((p) => (p ? { ...p, user_locations: prev } : p));
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to update location.";
+      Alert.alert("Error", message);
+    }
   };
+
+  const handleLocationDelete = async (locationId: string) => {
+    if (!user) return;
+    const prev = user.user_locations;
+    setUser((p) =>
+      p
+        ? {
+            ...p,
+            user_locations: p.user_locations.filter(
+              (l) => l._id !== locationId,
+            ),
+          }
+        : p,
+    );
+    try {
+      const { data } = await apiClient.delete(
+        `/users/${user._id}/locations/${locationId}`,
+      );
+      setUser((p) => (p ? { ...p, user_locations: data.data } : p));
+    } catch (err: any) {
+      setUser((p) => (p ? { ...p, user_locations: prev } : p));
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to delete location.";
+      Alert.alert("Error", message);
+    }
+  };
+
+  // ── Blood request status change ─────────────────────────────────────────────
+  // NEED_API: No blood_requests endpoint in user routes yet.
+  // When available, wire: PATCH /blood-requests/:id  { status }
+  const handleBloodRequestStatusChange = (
+    id: string,
+    status: BloodRequest["status"],
+  ) => {
+    // Local-only update until blood request API is connected
+    // NEED_API: await apiClient.patch(`/blood-requests/${id}`, { status });
+    console.warn("NEED_API: blood request status change not yet connected");
+  };
+
+  // ── Change password ─────────────────────────────────────────────────────────
+  // NEED_API: POST /auth/change-password  { current_password, new_password }
+  const handleChangePassword = async (
+    current: string,
+    next: string,
+  ): Promise<boolean> => {
+    try {
+      // NEED_API: await apiClient.post("/auth/change-password", {
+      //   current_password: current,
+      //   new_password: next,
+      // });
+      console.warn("NEED_API: change-password endpoint not yet connected");
+      // Mock: always succeed if current is non-empty
+      return current.length > 0;
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to change password.";
+      Alert.alert("Error", message);
+      return false;
+    }
+  };
+
+  // ── Deactivate account ──────────────────────────────────────────────────────
+  // NEED_API: POST /auth/deactivate  OR  PATCH /users/:id  { status: "INACTIVE" }
+  const handleDeactivate = async () => {
+    if (!user) return;
+    try {
+      // NEED_API: await apiClient.post("/auth/deactivate");
+      console.warn("NEED_API: deactivate endpoint not yet connected");
+      Alert.alert("Account deactivated.");
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to deactivate account.";
+      Alert.alert("Error", message);
+    }
+  };
+
+  // ── Delete account ──────────────────────────────────────────────────────────
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    try {
+      await apiClient.delete(`/users/${user._id}`);
+      await logout();
+      router.replace("/(auth)/login");
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to delete account.";
+      Alert.alert("Error", message);
+    }
+  };
+
+  // ── Logout ──────────────────────────────────────────────────────────────────
 
   const handleLogout = () => {
-    Alert.alert("Logged out. (Mock)");
-    // Clear auth tokens, navigate to login
+    // AccountSection already calls useAuth().logout() and navigates — nothing extra needed here.
   };
 
-  // ── Loading state ───────────────────────────────────────────────────────
+  // ── Resend email verification ────────────────────────────────────────────────
+  // NEED_API: POST /auth/resend-verification
+  const handleResendVerification = () => {
+    // NEED_API: await apiClient.post("/auth/resend-verification");
+    console.warn("NEED_API: resend-verification endpoint not yet connected");
+    Alert.alert("Verification email sent! Check your inbox.");
+  };
+
+  // ── Loading state ────────────────────────────────────────────────────────────
+
   if (loading) {
     return (
-      <View style={[styles.root, { alignItems: "center", justifyContent: "center" }]}>
+      <View
+        style={[
+          styles.root,
+          { alignItems: "center", justifyContent: "center" },
+        ]}
+      >
         <ActivityIndicator size="large" color="#E53935" />
-        <StyledText style={{ color: colors.thirdTextColor, marginTop: moderateScale(12), fontSize: moderateScale(13, 0.3) }}>
+        <StyledText
+          style={{
+            color: colors.thirdTextColor,
+            marginTop: moderateScale(12),
+            fontSize: moderateScale(13, 0.3),
+          }}
+        >
           Loading your profile…
         </StyledText>
       </View>
     );
   }
 
-  // ── Error state ─────────────────────────────────────────────────────────
-  if (error || !data) {
+  // ── Error state ───────────────────────────────────────────────────────────────
+
+  if (error || !user) {
     return (
-      <View style={[styles.root, { alignItems: "center", justifyContent: "center", gap: moderateScale(12), paddingHorizontal: moderateScale(30) }]}>
-        <MaterialCommunityIcons name="wifi-off" size={moderateScale(42)} color={colors.thirdTextColor} />
-        <StyledText style={{ color: colors.textColor, fontWeight: "700", fontSize: moderateScale(16, 0.3), textAlign: "center" }}>
+      <View
+        style={[
+          styles.root,
+          {
+            alignItems: "center",
+            justifyContent: "center",
+            gap: moderateScale(12),
+            paddingHorizontal: moderateScale(30),
+          },
+        ]}
+      >
+        <MaterialCommunityIcons
+          name="wifi-off"
+          size={moderateScale(42)}
+          color={colors.thirdTextColor}
+        />
+        <StyledText
+          style={{
+            color: colors.textColor,
+            fontWeight: "700",
+            fontSize: moderateScale(16, 0.3),
+            textAlign: "center",
+          }}
+        >
           Profile unavailable
         </StyledText>
-        <StyledText style={{ color: colors.thirdTextColor, fontSize: moderateScale(12, 0.3), textAlign: "center" }}>
+        <StyledText
+          style={{
+            color: colors.thirdTextColor,
+            fontSize: moderateScale(12, 0.3),
+            textAlign: "center",
+          }}
+        >
           {error ?? "Something went wrong."}
         </StyledText>
         <TouchableOpacity
-          onPress={loadData}
-          style={{ backgroundColor: "#E53935", paddingHorizontal: moderateScale(28), paddingVertical: moderateScale(12), borderRadius: moderateScale(12) }}
+          onPress={loadProfile}
+          style={{
+            backgroundColor: "#E53935",
+            paddingHorizontal: moderateScale(28),
+            paddingVertical: moderateScale(12),
+            borderRadius: moderateScale(12),
+          }}
         >
-          <StyledText style={{ color: "white", fontWeight: "700", fontSize: moderateScale(13, 0.3) }}>Retry</StyledText>
+          <StyledText
+            style={{
+              color: "white",
+              fontWeight: "700",
+              fontSize: moderateScale(13, 0.3),
+            }}
+          >
+            Retry
+          </StyledText>
         </TouchableOpacity>
       </View>
     );
   }
 
-  const openBloodRequests = data.blood_requests.filter(r => r.status === "OPEN").length;
+  // ── Avatar overlay while uploading ───────────────────────────────────────────
+
+  const avatarUploadingOverlay = uploadingAvatar ? (
+    <View
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0,0,0,0.35)",
+        zIndex: 99,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <ActivityIndicator size="large" color="white" />
+      <StyledText
+        style={{
+          color: "white",
+          marginTop: moderateScale(8),
+          fontSize: moderateScale(12, 0.3),
+        }}
+      >
+        Updating photo…
+      </StyledText>
+    </View>
+  ) : null;
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <View style={styles.root}>
-      {/* Sticky section tab bar */}
+      {avatarUploadingOverlay}
+
+      {/* ── Tab bar ── */}
       <View style={styles.tabBar}>
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key;
-          const badge = tab.key === "requests" && openBloodRequests > 0 ? openBloodRequests : null;
           return (
             <TouchableOpacity
               key={tab.key}
               onPress={() => scrollToSection(tab.key)}
-              activeOpacity={0.75}
               style={[styles.tabItem, isActive && styles.tabItemActive]}
+              activeOpacity={0.7}
             >
               <MaterialCommunityIcons
                 name={tab.icon as any}
-                size={moderateScale(15)}
+                size={moderateScale(16)}
                 color={isActive ? "#E53935" : colors.thirdTextColor}
               />
-              {badge ? (
-                <View style={{ position: "absolute", top: -2, right: -4, backgroundColor: "#E53935", borderRadius: 8, minWidth: 14, height: 14, alignItems: "center", justifyContent: "center" }}>
-                  <StyledText style={{ color: "white", fontSize: moderateScale(8, 0.3), fontWeight: "800" }}>{badge}</StyledText>
-                </View>
+              {isActive ? (
+                <StyledText
+                  style={{
+                    color: "#E53935",
+                    fontSize: moderateScale(9, 0.3),
+                    fontWeight: "700",
+                    marginTop: 2,
+                  }}
+                >
+                  {tab.label}
+                </StyledText>
               ) : null}
             </TouchableOpacity>
           );
@@ -246,44 +785,65 @@ export default function Profile() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Page title */}
-        {/* <View style={styles.pageHeader}>
-          <View style={{ width: moderateScale(4), height: moderateScale(46), borderRadius: 4, backgroundColor: "#E53935" }} />
-          <View>
-            <StyledText style={styles.pageTitle}>My Profile</StyledText>
-            <StyledText style={styles.pageSub}>Manage your account & preferences</StyledText>
-          </View>
-        </View> */}
-
-        {/* ── Unverified email banner ── */}
-        {!data.user.is_verified && (
+        {/* ── Unverified email banner ──
+        {!user.is_verified && (
           <TouchableOpacity
-            onPress={() => Alert.alert("Verification email sent! Check your inbox.")}
+            onPress={handleResendVerification}
             activeOpacity={0.8}
             style={styles.verifyBanner}
           >
             <Feather name="mail" size={moderateScale(16)} color="#F9A825" />
             <View style={{ flex: 1 }}>
-              <StyledText style={{ color: "#F9A825", fontWeight: "700", fontSize: moderateScale(12, 0.3) }}>
+              <StyledText
+                style={{
+                  color: "#F9A825",
+                  fontWeight: "700",
+                  fontSize: moderateScale(12, 0.3),
+                }}
+              >
                 Email not verified
               </StyledText>
-              <StyledText style={{ color: colors.thirdTextColor, fontSize: moderateScale(10, 0.3) }}>
+              <StyledText
+                style={{
+                  color: colors.thirdTextColor,
+                  fontSize: moderateScale(10, 0.3),
+                }}
+              >
                 Tap to resend verification email
               </StyledText>
             </View>
-            <Feather name="chevron-right" size={moderateScale(14)} color="#F9A825" />
+            <Feather
+              name="chevron-right"
+              size={moderateScale(14)}
+              color="#F9A825"
+            />
           </TouchableOpacity>
-        )}
+        )} */}
 
         {/* ── Suspended account banner ── */}
-        {data.user.status === "SUSPENDED" && (
+        {user.status === "SUSPENDED" && (
           <View style={styles.suspendedBanner}>
-            <Feather name="alert-octagon" size={moderateScale(16)} color="#E53935" />
+            <Feather
+              name="alert-octagon"
+              size={moderateScale(16)}
+              color="#E53935"
+            />
             <View style={{ flex: 1 }}>
-              <StyledText style={{ color: "#E53935", fontWeight: "700", fontSize: moderateScale(12, 0.3) }}>
+              <StyledText
+                style={{
+                  color: "#E53935",
+                  fontWeight: "700",
+                  fontSize: moderateScale(12, 0.3),
+                }}
+              >
                 Account Suspended
               </StyledText>
-              <StyledText style={{ color: colors.thirdTextColor, fontSize: moderateScale(10, 0.3) }}>
+              <StyledText
+                style={{
+                  color: colors.thirdTextColor,
+                  fontSize: moderateScale(10, 0.3),
+                }}
+              >
                 Contact support at support@bloodapp.com
               </StyledText>
             </View>
@@ -292,9 +852,21 @@ export default function Profile() {
 
         {/* ── Profile header ── */}
         <ProfileHeader
-          user={data.user}
-          userImage={data.user_image}
-          donorProfile={data.donor_profile}
+          user={{
+            f_name: user.f_name,
+            l_name: user.l_name,
+            blood_group_name: user.blood_group_name,
+            is_verified: user.is_verified,
+            status: user.status,
+            created_at: user.created_at,
+          }}
+          userImage={user.user_image ? { link: user.user_image.link } : null}
+          donorProfile={{
+            is_available: user.donor_profile.is_available,
+            inactive_until: user.donor_profile.inactive_until,
+            total_donations: user.donor_profile.total_donations,
+            last_donation_date: user.donor_profile.last_donation_date,
+          }}
           onEditAvatar={handleAvatarEdit}
           onToggleAvailability={handleToggleAvailability}
           colors={colors}
@@ -302,18 +874,20 @@ export default function Profile() {
 
         {/* ── Personal info ── */}
         <View
-          onLayout={(e) => { sectionRefs.current.info = e.nativeEvent.layout.y; }}
+          onLayout={(e) => {
+            sectionRefs.current.info = e.nativeEvent.layout.y;
+          }}
         >
           <PersonalInfoSection
             info={{
-              f_name: data.user.f_name,
-              l_name: data.user.l_name,
-              email: data.user.email,
-              phone: data.user.phone,
-              gender: data.user.gender,
-              date_of_birth: data.user.date_of_birth,
-              blood_group_name: data.user.blood_group_name,
-              is_verified: data.user.is_verified,
+              f_name: user.f_name,
+              l_name: user.l_name,
+              email: user.email,
+              phone: user.phone,
+              gender: user.gender,
+              date_of_birth: user.date_of_birth,
+              blood_group_name: user.blood_group_name,
+              is_verified: user.is_verified,
             }}
             onSave={handleSavePersonalInfo}
             colors={colors}
@@ -322,23 +896,75 @@ export default function Profile() {
 
         {/* ── Privacy ── */}
         <View
-          onLayout={(e) => { sectionRefs.current.privacy = e.nativeEvent.layout.y; }}
+          onLayout={(e) => {
+            sectionRefs.current.privacy = e.nativeEvent.layout.y;
+          }}
         >
           <PrivacySection
-            privacy={data.donor_privacy_settings}
-            contacts={data.user_contacts}
+            privacy={user.donor_privacy_settings}
+            contacts={user.user_contacts.map(toContactVM)}
             onPrivacyChange={handlePrivacyChange}
-            onContactsChange={handleContactsChange}
+            /**
+             * PrivacySection calls onContactsChange with the full local array whenever
+             * anything changes (add / delete / toggle). We intercept by passing granular
+             * callbacks via a bridging wrapper below.
+             *
+             * Because PrivacySection doesn't expose separate add/delete/togglePublic
+             * callbacks, we compare the incoming array with the current state to detect
+             * what changed and fire the right API call.
+             */
+            onContactsChange={async (updated) => {
+              const current = user.user_contacts.map(toContactVM);
+
+              // Detect addition (new item has a temp id starting with "con-")
+              const added = updated.find(
+                (u) => !current.some((c) => c.id === u.id),
+              );
+              if (added) {
+                try {
+                  await handleContactAdd({
+                    type: added.type,
+                    title: added.title,
+                    value: added.value,
+                    is_public: added.is_public,
+                  });
+                } catch {
+                  /* handleContactAdd already shows an alert */
+                }
+                return;
+              }
+
+              // Detect deletion
+              const removed = current.find(
+                (c) => !updated.some((u) => u.id === c.id),
+              );
+              if (removed) {
+                await handleContactDelete(removed.id);
+                return;
+              }
+
+              // Detect is_public toggle
+              const toggled = updated.find((u) => {
+                const orig = current.find((c) => c.id === u.id);
+                return orig && orig.is_public !== u.is_public;
+              });
+              if (toggled) {
+                await handleContactTogglePublic(toggled.id, toggled.is_public);
+              }
+            }}
             colors={colors}
           />
         </View>
 
         {/* ── Blood requests ── */}
+        {/* NEED_API: Replace static blood_requests with GET /blood-requests?user_id=:id */}
         <View
-          onLayout={(e) => { sectionRefs.current.requests = e.nativeEvent.layout.y; }}
+          onLayout={(e) => {
+            sectionRefs.current.requests = e.nativeEvent.layout.y;
+          }}
         >
           <MyBloodRequestsSection
-            requests={data.blood_requests}
+            requests={[] /* NEED_API: populate from /blood-requests endpoint */}
             onStatusChange={handleBloodRequestStatusChange}
             colors={colors}
           />
@@ -346,11 +972,33 @@ export default function Profile() {
 
         {/* ── Account ── */}
         <View
-          onLayout={(e) => { sectionRefs.current.account = e.nativeEvent.layout.y; }}
+          onLayout={(e) => {
+            sectionRefs.current.account = e.nativeEvent.layout.y;
+          }}
         >
           <AccountSection
-            locations={data.user_locations}
-            onLocationsChange={handleLocationsChange}
+            locations={user.user_locations.map(toLocationVM)}
+            onLocationsChange={async (updated) => {
+              const current = user.user_locations.map(toLocationVM);
+
+              // Detect primary change
+              const newPrimary = updated.find((u) => {
+                const orig = current.find((c) => c.id === u.id);
+                return orig && !orig.is_primary && u.is_primary;
+              });
+              if (newPrimary) {
+                await handleLocationSetPrimary(newPrimary.id);
+                return;
+              }
+
+              // Detect deletion
+              const removed = current.find(
+                (c) => !updated.some((u) => u.id === c.id),
+              );
+              if (removed) {
+                await handleLocationDelete(removed.id);
+              }
+            }}
             onChangePassword={handleChangePassword}
             onDeactivate={handleDeactivate}
             onDeleteAccount={handleDeleteAccount}
@@ -365,7 +1013,7 @@ export default function Profile() {
   );
 }
 
-// ─── Styles ─────────────────────────────────────────────────────────────────
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const createStyles = (colors: ThemeColors) =>
   ScaledSheet.create({
@@ -396,24 +1044,6 @@ const createStyles = (colors: ThemeColors) =>
     scrollContent: {
       paddingHorizontal: "13@ms",
       paddingTop: "8@ms",
-    },
-    pageHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: "12@ms",
-      marginTop: "16@ms",
-      marginBottom: "16@ms",
-    },
-    pageTitle: {
-      fontSize: "22@ms",
-      fontWeight: "800",
-      color: colors.textColor,
-      letterSpacing: -0.3,
-    },
-    pageSub: {
-      fontSize: "11@ms",
-      color: colors.thirdTextColor,
-      marginTop: "2@ms",
     },
     verifyBanner: {
       flexDirection: "row",

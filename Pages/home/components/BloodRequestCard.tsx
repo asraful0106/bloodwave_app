@@ -22,6 +22,7 @@ import { withOpacity } from "@/helpers/withOpacity";
 import * as Progress from "react-native-progress";
 import { BloodRequest, BloodRequestRequester } from "@/context/BloodReqContext";
 import { useAuth } from "@/context/AuthContext";
+import { envVars } from "@/config/envVars";
 
 interface BloodRequestCardProps {
   request: BloodRequest;
@@ -466,7 +467,13 @@ const BloodRequestCard = ({
         {/* ── Header ── */}
         <View style={styles.header}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Avatar imageUrl={postUserData.user_image?.link ?? avatarUrl} />
+            <Avatar
+              imageUrl={
+                postUserData.user_image?.link
+                  ? `${envVars.BASE_URL}/image${postUserData.user_image?.link}`
+                  : avatarUrl
+              }
+            />
             <View style={styles.userInfo}>
               <StyledText style={styles.userName}>
                 {[postUserData.f_name, postUserData.l_name]

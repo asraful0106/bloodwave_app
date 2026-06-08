@@ -5,6 +5,7 @@
 
 import Avatar from "@/components/Avatar";
 import { StyledText } from "@/components/StyledText";
+import { envVars } from "@/config/envVars";
 import { ThemeColors } from "@/constants/themeCollorConstant";
 import { withOpacity } from "@/helpers/withOpacity";
 import { MaterialCommunityIcons, Feather } from "@expo/vector-icons";
@@ -50,6 +51,8 @@ export const ProfileHeader = ({
   colors,
 }: ProfileHeaderProps) => {
   const memberSince = new Date(user.created_at).getFullYear();
+  // console.log("User Image: ", userImage)
+  // console.log(`${envVars.BASE_URL}/image${userImage?.link}`);
 
   const handleToggle = () => {
     const next = !donorProfile.is_available;
@@ -64,7 +67,7 @@ export const ProfileHeader = ({
           text: "Confirm",
           onPress: () => onToggleAvailability(next),
         },
-      ]
+      ],
     );
   };
 
@@ -97,8 +100,18 @@ export const ProfileHeader = ({
             borderColor: withOpacity("#E53935", 0.25),
           }}
         >
-          <Feather name="alert-octagon" size={moderateScale(14)} color="#E53935" />
-          <StyledText style={{ color: "#E53935", fontSize: moderateScale(11, 0.3), flex: 1 }}>
+          <Feather
+            name="alert-octagon"
+            size={moderateScale(14)}
+            color="#E53935"
+          />
+          <StyledText
+            style={{
+              color: "#E53935",
+              fontSize: moderateScale(11, 0.3),
+              flex: 1,
+            }}
+          >
             {isSuspended
               ? "Your account is suspended. Contact support to restore access."
               : "Your account is scheduled for deletion."}
@@ -106,13 +119,23 @@ export const ProfileHeader = ({
         </View>
       )}
 
-      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: moderateScale(16) }}>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: moderateScale(16),
+        }}
+      >
         {/* Avatar with edit button */}
         <View>
           <TouchableOpacity onPress={onEditAvatar} activeOpacity={0.8}>
             <View>
               <Avatar
-                imageUrl={userImage?.link ?? undefined}
+                imageUrl={
+                  userImage?.link
+                    ? `${envVars.BASE_URL}/image${userImage?.link}`
+                    : undefined
+                }
                 size={moderateScale(76)}
               />
               {/* Camera overlay */}
@@ -139,7 +162,14 @@ export const ProfileHeader = ({
 
         {/* Name + meta */}
         <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: moderateScale(6), flexWrap: "wrap" }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: moderateScale(6),
+              flexWrap: "wrap",
+            }}
+          >
             <StyledText
               style={{
                 fontSize: moderateScale(18, 0.3),
@@ -160,7 +190,15 @@ export const ProfileHeader = ({
           </View>
 
           {/* Blood group chip */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: moderateScale(6), marginTop: moderateScale(5), flexWrap: "wrap" }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: moderateScale(6),
+              marginTop: moderateScale(5),
+              flexWrap: "wrap",
+            }}
+          >
             <View
               style={{
                 backgroundColor: withOpacity("#E53935", 0.12),
@@ -172,16 +210,27 @@ export const ProfileHeader = ({
                 gap: moderateScale(4),
               }}
             >
-              <MaterialCommunityIcons name="water" size={moderateScale(11)} color="#E53935" />
+              <MaterialCommunityIcons
+                name="water"
+                size={moderateScale(11)}
+                color="#E53935"
+              />
               <StyledText
-                style={{ color: "#E53935", fontWeight: "800", fontSize: moderateScale(12, 0.3) }}
+                style={{
+                  color: "#E53935",
+                  fontWeight: "800",
+                  fontSize: moderateScale(12, 0.3),
+                }}
               >
                 {user.blood_group_name}
               </StyledText>
             </View>
 
             <StyledText
-              style={{ color: colors.thirdTextColor, fontSize: moderateScale(10, 0.3) }}
+              style={{
+                color: colors.thirdTextColor,
+                fontSize: moderateScale(10, 0.3),
+              }}
             >
               Since {memberSince}
             </StyledText>
@@ -195,22 +244,29 @@ export const ProfileHeader = ({
               marginTop: moderateScale(10),
             }}
           >
-            {[
-              { label: "Donations", value: donorProfile.total_donations },
-            ].map((s) => (
-              <View key={s.label}>
-                <StyledText
-                  style={{ color: colors.textColor, fontWeight: "800", fontSize: moderateScale(15, 0.3) }}
-                >
-                  {s.value}
-                </StyledText>
-                <StyledText
-                  style={{ color: colors.thirdTextColor, fontSize: moderateScale(9, 0.3) }}
-                >
-                  {s.label}
-                </StyledText>
-              </View>
-            ))}
+            {[{ label: "Donations", value: donorProfile.total_donations }].map(
+              (s) => (
+                <View key={s.label}>
+                  <StyledText
+                    style={{
+                      color: colors.textColor,
+                      fontWeight: "800",
+                      fontSize: moderateScale(15, 0.3),
+                    }}
+                  >
+                    {s.value}
+                  </StyledText>
+                  <StyledText
+                    style={{
+                      color: colors.thirdTextColor,
+                      fontSize: moderateScale(9, 0.3),
+                    }}
+                  >
+                    {s.label}
+                  </StyledText>
+                </View>
+              ),
+            )}
           </View>
         </View>
       </View>
@@ -227,11 +283,19 @@ export const ProfileHeader = ({
           borderTopColor: colors.cardBorderColor,
         }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: moderateScale(8) }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: moderateScale(8),
+          }}
+        >
           <MaterialCommunityIcons
             name="heart-pulse"
             size={moderateScale(18)}
-            color={donorProfile.is_available ? "#2eb97b" : colors.thirdTextColor}
+            color={
+              donorProfile.is_available ? "#2eb97b" : colors.thirdTextColor
+            }
           />
           <View>
             <StyledText
@@ -244,13 +308,16 @@ export const ProfileHeader = ({
               Available to Donate
             </StyledText>
             <StyledText
-              style={{ color: colors.thirdTextColor, fontSize: moderateScale(10, 0.3) }}
+              style={{
+                color: colors.thirdTextColor,
+                fontSize: moderateScale(10, 0.3),
+              }}
             >
               {donorProfile.is_available
                 ? "You appear in donor search results"
                 : donorProfile.inactive_until
-                ? `Paused until ${new Date(donorProfile.inactive_until).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}`
-                : "Hidden from donor searches"}
+                  ? `Paused until ${new Date(donorProfile.inactive_until).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}`
+                  : "Hidden from donor searches"}
             </StyledText>
           </View>
         </View>

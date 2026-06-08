@@ -7,6 +7,7 @@ import { withOpacity } from "@/helpers/withOpacity";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
+  ActivityIndicator,
   Animated,
   FlatList,
   ScrollView,
@@ -19,6 +20,10 @@ import { useRouter } from "expo-router";
 import { PlatformPressable } from "@react-navigation/elements";
 import { useState } from "react";
 import { BloodRequest, useBloodRequest } from "@/context/BloodReqContext";
+import { useAuth } from "@/context/AuthContext";
+import { User } from "../profile/Profile";
+import apiClient from "@/config/client";
+import { envVars } from "@/config/envVars";
 
 // ─── Skeleton card ────────────────────────────────────────────────────────────
 
@@ -248,6 +253,35 @@ function EmptyState({ filter }: { filter: string }) {
 export default function Home() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  // ── Load profile ────────────────────────────────────────────────────────────
+  const { userData } = useAuth();
+  const [user, setUser] = useState<User | null>(null);
+  const [userLoading, setUserLoading] = useState<boolean>(false);
+  const loadProfile = useCallback(async () => {
+    try {
+      setUserLoading(true);
+      const { data } = await apiClient.get("/users/me", {
+        headers: {
+          accessToken: userData.accessToken,
+        },
+      });
+      setUser(data.data);
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Could not load your profile.";
+      console.log("loadProfile: ", err);
+    } finally {
+      setUserLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  // console.log("User: ", user);
 
   const { requests, loading, error, fetchAllRequests } = useBloodRequest();
 
@@ -307,20 +341,47 @@ export default function Home() {
     );
   };
 
-  return (
-    <ScrollView
-      style={{ paddingHorizontal: moderateScale(13) }}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      <HeadPart
-        selectedFilter={selectedFilter}
-        onFilterChange={setSelectedFilter}
-        disabled={isLoading || !!serverError}
-      />
-      {renderBody()}
-    </ScrollView>
-  );
+return (
+  <ScrollView
+    style={{ paddingHorizontal: moderateScale(13) }}
+    showsVerticalScrollIndicator={false}
+    keyboardShouldPersistTaps="handled"
+  >
+    {userLoading ? (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.bodyBackground,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color="#E53935" />
+
+        <StyledText
+          style={{
+            color: colors.thirdTextColor,
+            marginTop: moderateScale(12),
+            fontSize: moderateScale(13, 0.3),
+          }}
+        >
+          Loading your profile…
+        </StyledText>
+      </View>
+    ) : (
+      <>
+        <HeadPart
+          selectedFilter={selectedFilter}
+          onFilterChange={setSelectedFilter}
+          disabled={isLoading || !!serverError}
+          user={user}
+        />
+
+        {renderBody()}
+      </>
+    )}
+  </ScrollView>
+);
 }
 
 const createStyles = (colors: ThemeColors) =>
@@ -336,16 +397,17 @@ interface HeadPartProps {
   selectedFilter: string;
   onFilterChange: (filter: string) => void;
   disabled?: boolean;
+  user: User | null;
 }
 
 const HeadPart = ({
   selectedFilter,
   onFilterChange,
   disabled,
+  user,
 }: HeadPartProps) => {
   const router = useRouter();
   const { colors } = useTheme();
-
   const filters = ["All", "O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
 
   return (
@@ -366,7 +428,10 @@ const HeadPart = ({
             gap: moderateScale(10),
           }}
         >
-          <Avatar size={moderateScale(35)} />
+          <Avatar
+            size={moderateScale(35)}
+            imageUrl={`${user?.user_image ? `${envVars.BASE_URL}/image${user.user_image.link}` : ""}`}
+          />
           <StyledText
             style={{
               fontWeight: "500",

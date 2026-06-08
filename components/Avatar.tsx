@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { View, Image, StyleSheet, Animated } from "react-native";
+import { Animated, Image, StyleSheet, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 import { StyledText } from "./StyledText";
-import { Buffer } from "buffer";
 
 interface AvatarProps {
   imageUrl?: string;
@@ -32,7 +31,7 @@ const Avatar: React.FC<AvatarProps> = ({
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
 
-
+  // console.log("Image Url: ", imageUrl);
   const imageSource = useMemo(() => {
     if (imageUrl) return { uri: imageUrl };
     return require("@/assets/images/default-avatar.jpeg");
@@ -70,6 +69,8 @@ const Avatar: React.FC<AvatarProps> = ({
   }, [loaded, error, skeletonOpacity]);
 
   const showSkeleton = !loaded && !error;
+
+  // console.log("Image source: ", imageSource);
 
   return (
     <View style={styles.avatar}>
