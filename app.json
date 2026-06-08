@@ -42,7 +42,8 @@
           "locationWhenInUsePermission": "Used to find nearby donors."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,
