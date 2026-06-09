@@ -1,9 +1,7 @@
 /**
  * MyDonations.tsx
  *
- * Donation history & stats page.
- * Replace the import from "@/assets/fakeData/myDonations.json"
- * with a real API call when ready — the shape is identical to the DB schema.
+ * Donation history & stats page — wired to real API.
  *
  * Real-life cases handled:
  *  ✅ PROCESSING  — committed but not yet donated (appointment pending)
@@ -21,14 +19,13 @@
  *  ✅ Dark / light theme via useTheme()
  */
 
-import donationData from "@/assets/fakeData/myDonations.json";
 import Avatar from "@/components/Avatar";
 import { StyledText } from "@/components/StyledText";
 import { ThemeColors } from "@/constants/themeCollorConstant";
 import { withOpacity } from "@/helpers/withOpacity";
 import { useTheme } from "@/hooks/theme/ThemeContext";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -41,6 +38,8 @@ import {
 import { moderateScale, ScaledSheet } from "react-native-size-matters";
 import DonationSkeleton from "./components/DonationSkeleton";
 import DonationCard from "./components/DonationCard";
+import apiClient from "@/config/client";
+import { useAuth } from "@/context/AuthContext";
 
 // ─────────────────────────────────────────────────────────────
 // Types  (mirrors DB schema exactly)
@@ -99,6 +98,68 @@ interface DonorProfile {
 interface DonationData {
   donor_profile: DonorProfile;
   donations: Donation[];
+}
+
+// ─────────────────────────────────────────────────────────────
+// API response types (what the backend actually returns)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Maps the numeric urgency_level stored in blood_request_snapshot
+ * (1 | 2 | 3 as strings) to the UI enum expected by DonationCard.
+ */
+function mapUrgencyLevel(raw: string | number): UrgencyLevel {
+  const val = String(raw);
+  if (val === "1") return "NORMAL";
+  if (val === "2") return "URGENT";
+  if (val === "3") return "EMERGENCY";
+  // Already a label (e.g. from older records)
+  if (val === "NORMAL" || val === "URGENT" || val === "EMERGENCY")
+    return val as UrgencyLevel;
+  return "NORMAL";
+}
+
+/**
+ * Normalises a raw donation document from the API into the Donation shape
+ * that the UI components expect.
+ * The server embeds data in `blood_request_snapshot` + `requester_snapshot`;
+ * we flatten those into `blood_request` and `requester` for the UI.
+ */
+function normaliseDonation(raw: any): Donation {
+  const snap = raw.blood_request_snapshot ?? {};
+  const req = raw.requester_snapshot ?? {};
+
+  return {
+    id: raw._id ?? raw.id,
+    blood_request_id: String(snap.blood_request_id ?? raw.blood_request_id),
+    donor_user_id: String(raw.donor_user_id),
+    units: raw.units,
+    status: raw.status as DonationStatus,
+    notes: raw.notes ?? null,
+    donated_at: raw.donated_at ?? null,
+    created_at: raw.created_at,
+    updated_at: raw.updated_at,
+    blood_request: {
+      id: String(snap.blood_request_id ?? raw.blood_request_id),
+      blood_group_name: snap.blood_group_name ?? "",
+      description: snap.description ?? "",
+      units_required: snap.units_required ?? 0,
+      units_fulfilled: snap.units_fulfilled ?? 0,
+      lat: snap.lat ?? 0,
+      lng: snap.lng ?? 0,
+      urgency_level: mapUrgencyLevel(snap.urgency_level ?? "1"),
+      patient_type: snap.patient_type ?? "",
+      needed_by: snap.needed_by ?? "",
+      status: (snap.status as BloodRequestStatus) ?? "OPEN",
+      location_label: snap.location_label ?? "",
+    },
+    requester: {
+      id: String(req.requester_user_id ?? ""),
+      f_name: req.f_name ?? "",
+      l_name: req.l_name ?? "",
+      avatar_url: req.avatar_url ?? "",
+    },
+  };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -203,8 +264,8 @@ const EligibilityBanner = ({
                 marginTop: 2,
               }}
             >
-              You marked yourself unavailable. Available again in {daysLeft}{" "}
-              day{daysLeft !== 1 ? "s" : ""}.
+              You marked yourself unavailable. Available again in {daysLeft} day
+              {daysLeft !== 1 ? "s" : ""}.
             </StyledText>
           </View>
         </View>
@@ -303,8 +364,8 @@ const EligibilityBanner = ({
               marginTop: 2,
             }}
           >
-            Last donated {formatRelativeDate(profile.last_donation_date)}. You're
-            good to go!
+            Last donated {formatRelativeDate(profile.last_donation_date)}.
+            You're good to go!
           </StyledText>
         </View>
       </View>
@@ -332,7 +393,11 @@ const EligibilityBanner = ({
         }}
       >
         <View
-          style={{ flexDirection: "row", alignItems: "center", gap: moderateScale(8) }}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: moderateScale(8),
+          }}
         >
           <MaterialCommunityIcons
             name="timer-sand"
@@ -513,7 +578,6 @@ const StatsRow = ({
   );
 };
 
-
 /** Empty state */
 const EmptyState = ({ colors }: { colors: ThemeColors }) => (
   <View
@@ -565,6 +629,33 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: "CANCELLED", label: "Cancelled" },
 ];
 
+// NOT_IMPLEMENTED: Derive a proper DonorProfile from your user/donor-profile
+// endpoint once available. Until then we synthesise it from the donations list.
+function buildDonorProfileFromDonations(donations: Donation[]): DonorProfile {
+  const fulfilled = donations.filter((d) => d.status === "FULFILLED");
+  const lastDonation =
+    fulfilled
+      .map((d) => d.donated_at ?? d.created_at)
+      .sort()
+      .at(-1) ?? null;
+
+  const nextEligible = lastDonation
+    ? new Date(
+        new Date(lastDonation).getTime() + COOLDOWN_DAYS * 24 * 60 * 60 * 1000,
+      ).toISOString()
+    : null;
+
+  return {
+    id: "",
+    user_id: "",
+    is_available: true,
+    inactive_until: null,
+    last_donation_date: lastDonation,
+    next_eligible_date: nextEligible,
+    total_donations: fulfilled.length,
+  };
+}
+
 export default function MyDonations() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -573,35 +664,75 @@ export default function MyDonations() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterTab>("ALL");
+  const { userData } = useAuth();
 
-  // ── Load data (swap this block for a real API call) ──────────────────────
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  // ── Fetch donations from real API ────────────────────────────────────────
+  const fetchDonations = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        // Simulate network latency — remove when using real API
-        await new Promise((r) => setTimeout(r, 1200));
+      const response = await apiClient.get<{
+        success: boolean;
+        data: {
+          donations: any[];
+          pagination: {
+            total: number;
+            page: number;
+            limit: number;
+            pages: number;
+          };
+        };
+      }>("/donations", {
+        headers: {
+          userId: userData._id,
+        },
+      });
 
-        // ✅ Replace this with: const res = await fetch('/api/my-donations'); const data = await res.json();
-        const result = donationData as DonationData;
-
-        if (!result.donations || !Array.isArray(result.donations)) {
-          throw new Error("Invalid data format");
-        }
-
-        setData(result);
-      } catch (err) {
-        console.error("Failed to load donations:", err);
-        setError("Could not load your donation history.");
-      } finally {
-        setLoading(false);
+      if (!response.data.success) {
+        throw new Error("Failed to load donations.");
       }
-    };
 
-    load();
+      const rawDonations = response.data.data.donations ?? [];
+      const donations = rawDonations.map(normaliseDonation);
+
+      // NOT_IMPLEMENTED: Replace buildDonorProfileFromDonations() with a real
+      // GET /donor-profile (or similar) endpoint that returns is_available,
+      // inactive_until, next_eligible_date, last_donation_date, total_donations.
+      const donor_profile = buildDonorProfileFromDonations(donations);
+
+      setData({ donor_profile, donations });
+    } catch (err: any) {
+      console.error("Failed to load donations:", err);
+      const message =
+        err?.response?.data?.message ??
+        err?.message ??
+        "Could not load your donation history.";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchDonations();
+  }, [fetchDonations]);
+
+  // ── Optimistic update helper ─────────────────────────────────────────────
+  const updateDonationInState = useCallback(
+    (id: string, patch: Partial<Donation>) => {
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          donations: prev.donations.map((d) =>
+            d.id === id ? { ...d, ...patch } : d,
+          ),
+        };
+      });
+    },
+    [],
+  );
 
   const filteredDonations = useMemo(() => {
     if (!data) return [];
@@ -616,7 +747,11 @@ export default function MyDonations() {
   );
 
   const renderItem = ({ item }: { item: Donation }) => (
-    <DonationCard donation={item} colors={colors} />
+    <DonationCard
+      donation={item}
+      colors={colors}
+      onStatusUpdate={updateDonationInState}
+    />
   );
 
   const renderHeader = () => {
@@ -779,7 +914,11 @@ export default function MyDonations() {
       <View
         style={[
           styles.root,
-          { alignItems: "center", justifyContent: "center", gap: moderateScale(12) },
+          {
+            alignItems: "center",
+            justifyContent: "center",
+            gap: moderateScale(12),
+          },
         ]}
       >
         <MaterialCommunityIcons
@@ -807,12 +946,7 @@ export default function MyDonations() {
           {error}
         </StyledText>
         <TouchableOpacity
-          onPress={() => {
-            setError(null);
-            setLoading(true);
-            // re-trigger useEffect by resetting state — in real app call API again
-            setTimeout(() => setLoading(false), 100);
-          }}
+          onPress={fetchDonations}
           style={{
             backgroundColor: "#E53935",
             paddingHorizontal: moderateScale(24),
@@ -821,7 +955,11 @@ export default function MyDonations() {
           }}
         >
           <StyledText
-            style={{ color: "white", fontWeight: "700", fontSize: moderateScale(13, 0.3) }}
+            style={{
+              color: "white",
+              fontWeight: "700",
+              fontSize: moderateScale(13, 0.3),
+            }}
           >
             Retry
           </StyledText>
@@ -833,37 +971,17 @@ export default function MyDonations() {
   // ── Loading skeleton ─────────────────────────────────────────────────────
   if (loading) {
     return (
-      <View style={[styles.root, { paddingHorizontal: moderateScale(13), marginTop: moderateScale(10) }]}>
-        {/* <View style={[styles.pageHeader, { marginTop: moderateScale(20) }]}>
-          <View
-            style={{
-              width: moderateScale(4),
-              height: moderateScale(48),
-              borderRadius: moderateScale(4),
-              backgroundColor: "#E53935",
-            }}
-          />
-          <View style={{ gap: moderateScale(6) }}>
-            <View
-              style={{
-                height: moderateScale(18),
-                width: moderateScale(140),
-                backgroundColor: colors.thirdBackgroundColor,
-                borderRadius: 4,
-              }}
-            />
-            <View
-              style={{
-                height: moderateScale(12),
-                width: moderateScale(100),
-                backgroundColor: colors.thirdBackgroundColor,
-                borderRadius: 4,
-              }}
-            />
-          </View>
-        </View> */}
+      <View
+        style={[
+          styles.root,
+          {
+            paddingHorizontal: moderateScale(13),
+            marginTop: moderateScale(10),
+          },
+        ]}
+      >
         {[1, 2, 3].map((i) => (
-          <DonationSkeleton key={i}/>
+          <DonationSkeleton key={i} />
         ))}
       </View>
     );

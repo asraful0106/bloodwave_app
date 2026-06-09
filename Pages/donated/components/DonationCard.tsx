@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, Alert } from "react-native";
+import { View, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import React, { useState } from "react";
 import { Donation, DonationStatus, UrgencyLevel } from "../MyDonations";
 import { ThemeColors } from "@/constants/themeCollorConstant";
@@ -7,6 +7,7 @@ import Avatar from "@/components/Avatar";
 import { StyledText } from "@/components/StyledText";
 import { withOpacity } from "@/helpers/withOpacity";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import apiClient from "@/config/client";
 
 const STATUS_CONFIG: Record<
   DonationStatus,
@@ -38,13 +39,18 @@ const URGENCY_CONFIG: Record<UrgencyLevel, { label: string; color: string }> = {
   EMERGENCY: { label: "Emergency", color: "#E53935" },
 };
 
+interface Props {
+  donation: Donation;
+  colors: ThemeColors;
+  /** Called after a successful status mutation so the parent can update its list. */
+  onStatusUpdate: (id: string, patch: Partial<Donation>) => void;
+}
+
 export default function DonationCard({
   donation,
   colors,
-}: {
-  donation: Donation;
-  colors: ThemeColors;
-}) {
+  onStatusUpdate,
+}: Props) {
   function daysSince(dateStr: string): number {
     const now = new Date();
     const past = new Date(dateStr);
@@ -77,6 +83,10 @@ export default function DonationCard({
   }
 
   const [expanded, setExpanded] = useState(false);
+  const [actionLoading, setActionLoading] = useState<
+    "fulfil" | "cancel" | null
+  >(null);
+
   const cfg = STATUS_CONFIG[donation.status];
   const urgency = URGENCY_CONFIG[donation.blood_request.urgency_level];
   const expired = isRequestExpired(donation);
@@ -85,6 +95,78 @@ export default function DonationCard({
     donation.status === "FULFILLED" && donation.donated_at
       ? donation.donated_at
       : donation.created_at;
+
+  // ── Mark as Donated ──────────────────────────────────────────────────────
+  const handleMarkDonated = () => {
+    Alert.alert(
+      "Mark as Donated",
+      "Confirm you have completed this donation?",
+      [
+        { text: "Not yet", style: "cancel" },
+        {
+          text: "Confirm",
+          onPress: async () => {
+            try {
+              setActionLoading("fulfil");
+              const donatedAt = new Date().toISOString();
+
+              await apiClient.patch(`/donations/${donation.id}`, {
+                status: "FULFILLED",
+                donated_at: donatedAt,
+              });
+
+              // Optimistic update — reflect in parent list immediately
+              onStatusUpdate(donation.id, {
+                status: "FULFILLED",
+                donated_at: donatedAt,
+              });
+            } catch (err: any) {
+              const message =
+                err?.response?.data?.message ??
+                "Could not mark donation as fulfilled. Please try again.";
+              Alert.alert("Error", message);
+            } finally {
+              setActionLoading(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  // ── Cancel commitment ────────────────────────────────────────────────────
+  const handleCancel = () => {
+    Alert.alert(
+      "Cancel Commitment",
+      "Are you sure you want to cancel? The requester will be notified.",
+      [
+        { text: "Keep", style: "cancel" },
+        {
+          text: "Cancel",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setActionLoading("cancel");
+
+              // DELETE performs a soft-cancel on the backend
+              await apiClient.delete(`/donations/${donation.id}`);
+
+              // Optimistic update
+              onStatusUpdate(donation.id, { status: "CANCELLED" });
+            } catch (err: any) {
+              const message =
+                err?.response?.data?.message ??
+                "Could not cancel the commitment. Please try again.";
+              Alert.alert("Error", message);
+            } finally {
+              setActionLoading(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <TouchableOpacity
       activeOpacity={0.85}
@@ -342,7 +424,7 @@ export default function DonationCard({
           </View>
         </View>
 
-        {/* Expanded: notes + exact date */}
+        {/* Expanded: notes + exact date + actions */}
         {expanded && (
           <View
             style={{
@@ -414,72 +496,64 @@ export default function DonationCard({
                   marginTop: moderateScale(4),
                 }}
               >
+                {/* Mark Donated */}
                 <TouchableOpacity
-                  onPress={() =>
-                    Alert.alert(
-                      "Mark as Donated",
-                      "Confirm you have completed this donation?",
-                      [
-                        { text: "Not yet", style: "cancel" },
-                        {
-                          text: "Confirm",
-                          onPress: () => Alert.alert("✅ Marked as donated!"),
-                        },
-                      ],
-                    )
-                  }
+                  onPress={handleMarkDonated}
+                  disabled={actionLoading !== null}
                   style={{
                     flex: 1,
                     backgroundColor: "#2eb97b",
                     borderRadius: moderateScale(8),
                     paddingVertical: moderateScale(7),
                     alignItems: "center",
+                    justifyContent: "center",
+                    opacity: actionLoading !== null ? 0.6 : 1,
                   }}
                 >
-                  <StyledText
-                    style={{
-                      color: "white",
-                      fontWeight: "700",
-                      fontSize: moderateScale(11, 0.3),
-                    }}
-                  >
-                    Mark Donated
-                  </StyledText>
+                  {actionLoading === "fulfil" ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <StyledText
+                      style={{
+                        color: "white",
+                        fontWeight: "700",
+                        fontSize: moderateScale(11, 0.3),
+                      }}
+                    >
+                      Mark Donated
+                    </StyledText>
+                  )}
                 </TouchableOpacity>
+
+                {/* Cancel */}
                 <TouchableOpacity
-                  onPress={() =>
-                    Alert.alert(
-                      "Cancel Commitment",
-                      "Are you sure you want to cancel? The requester will be notified.",
-                      [
-                        { text: "Keep", style: "cancel" },
-                        {
-                          text: "Cancel",
-                          style: "destructive",
-                          onPress: () => Alert.alert("Commitment cancelled."),
-                        },
-                      ],
-                    )
-                  }
+                  onPress={handleCancel}
+                  disabled={actionLoading !== null}
                   style={{
                     flex: 1,
                     backgroundColor: withOpacity("#E53935", 0.1),
                     borderRadius: moderateScale(8),
                     paddingVertical: moderateScale(7),
                     alignItems: "center",
+                    justifyContent: "center",
                     borderWidth: 1,
                     borderColor: withOpacity("#E53935", 0.3),
+                    opacity: actionLoading !== null ? 0.6 : 1,
                   }}
                 >
-                  <StyledText
-                    style={{
-                      color: "#E53935",
-                      fontWeight: "700",
-                      fontSize: moderateScale(11, 0.3),
-                    }}
-                  >
-                    Cancel
-                  </StyledText>
+                  {actionLoading === "cancel" ? (
+                    <ActivityIndicator size="small" color="#E53935" />
+                  ) : (
+                    <StyledText
+                      style={{
+                        color: "#E53935",
+                        fontWeight: "700",
+                        fontSize: moderateScale(11, 0.3),
+                      }}
+                    >
+                      Cancel
+                    </StyledText>
+                  )}
                 </TouchableOpacity>
               </View>
             )}
