@@ -312,6 +312,16 @@ export default function Home() {
 
   const keyExtractor = useCallback((item: BloodRequest) => item._id, []);
 
+  // Refresh controll
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    loadProfile();
+    fetchAllRequests();
+
+    setRefreshing(false);
+  };
+
   // ── Body content ───────────────────────────────────────────────────────────
   const renderBody = () => {
     if (isLoading) {
@@ -337,51 +347,50 @@ export default function Home() {
         style={{ marginBottom: moderateScale(20) }}
         scrollEnabled={false} // outer ScrollView handles scrolling
         ListEmptyComponent={<EmptyState filter={selectedFilter} />}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
       />
     );
   };
 
-return (
-  <ScrollView
-    style={{ paddingHorizontal: moderateScale(13) }}
-    showsVerticalScrollIndicator={false}
-    keyboardShouldPersistTaps="handled"
-  >
-    {userLoading ? (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: colors.bodyBackground,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <ActivityIndicator size="large" color="#E53935" />
-
-        <StyledText
+  return (
+    <>
+      {userLoading ? (
+        <View
           style={{
-            color: colors.thirdTextColor,
-            marginTop: moderateScale(12),
-            fontSize: moderateScale(13, 0.3),
+            flex: 1,
+            backgroundColor: colors.bodyBackground,
+            paddingHorizontal: moderateScale(13),
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          Loading your profile…
-        </StyledText>
-      </View>
-    ) : (
-      <>
-        <HeadPart
-          selectedFilter={selectedFilter}
-          onFilterChange={setSelectedFilter}
-          disabled={isLoading || !!serverError}
-          user={user}
-        />
+          <ActivityIndicator size="large" color="#E53935" />
 
-        {renderBody()}
-      </>
-    )}
-  </ScrollView>
-);
+          <StyledText
+            style={{
+              color: colors.thirdTextColor,
+              marginTop: moderateScale(12),
+              fontSize: moderateScale(13, 0.3),
+            }}
+          >
+            Loading your profile…
+          </StyledText>
+        </View>
+      ) : (
+        <>
+          <HeadPart
+            selectedFilter={selectedFilter}
+            onFilterChange={setSelectedFilter}
+            disabled={isLoading || !!serverError}
+            user={user}
+          />
+
+          {renderBody()}
+        </>
+      )}
+    </>
+  );
 }
 
 const createStyles = (colors: ThemeColors) =>
@@ -415,6 +424,7 @@ const HeadPart = ({
       {/* Header row */}
       <View
         style={{
+          paddingHorizontal: moderateScale(13),
           marginTop: moderateScale(20),
           flexDirection: "row",
           alignItems: "center",
