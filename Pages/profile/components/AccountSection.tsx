@@ -214,7 +214,7 @@ export const AccountSection = ({
   const { logout } = useAuth();
   const handleLogout = () => {
     logout();
-    router.push("/(auth)/login")
+    // router.push("/(auth)/login")
   };
 
   return (

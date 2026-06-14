@@ -13,6 +13,8 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { moderateScale, ScaledSheet } from "react-native-size-matters";
 import { WebView } from "react-native-webview";
@@ -23,6 +25,7 @@ import * as Progress from "react-native-progress";
 import { BloodRequest, BloodRequestRequester } from "@/context/BloodReqContext";
 import { useAuth } from "@/context/AuthContext";
 import { envVars } from "@/config/envVars";
+import apiClient from "@/config/client";
 
 interface BloodRequestCardProps {
   request: BloodRequest;
@@ -458,8 +461,48 @@ const BloodRequestCard = ({
   };
 
   const isValidRequestToDonate =
+    !userData ||
     userData._id === postUserData._id ||
     userData.blood_group_name === postUserData.blood_group_name;
+
+  // Donation
+  const [donating, setDonating] = useState(false);
+  const [donateModal, setDonateModal] = useState(false);
+  const [units, setUnits] = useState("1");
+  const [donateError, setDonateError] = useState<string | null>(null);
+  const [donateSuccess, setDonateSuccess] = useState(false);
+
+  const handleDonate = async () => {
+    const parsedUnits = parseInt(units, 10);
+    if (!parsedUnits || parsedUnits < 1) {
+      setDonateError("Please enter a valid number of units.");
+      return;
+    }
+    try {
+      setDonating(true);
+      setDonateError(null);
+      await apiClient.post("/donations", {
+        blood_request_id: request._id,
+        units: parsedUnits,
+      });
+      setDonateSuccess(true);
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to register donation.";
+      setDonateError(msg);
+    } finally {
+      setDonating(false);
+    }
+  };
+
+  const closeDonateModal = () => {
+    setDonateModal(false);
+    setDonateError(null);
+    setDonateSuccess(false);
+    setUnits("1");
+  };
 
   return (
     <>
@@ -617,6 +660,7 @@ const BloodRequestCard = ({
                 borderRadius: moderateScale(6),
               }}
               disabled={isValidRequestToDonate}
+              onPress={() => setDonateModal(true)}
             >
               <StyledText
                 style={{
@@ -660,6 +704,246 @@ const BloodRequestCard = ({
         requester={postUserData}
         colors={colors}
       />
+      {/* Donation Modal */}
+      <Modal
+        visible={donateModal}
+        transparent
+        animationType="slide"
+        onRequestClose={closeDonateModal}
+        statusBarTranslucent
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.55)",
+            justifyContent: "flex-end",
+          }}
+          onPress={closeDonateModal}
+        >
+          <Pressable
+            style={{
+              backgroundColor: colors.secondBackgroundColor,
+              borderTopLeftRadius: moderateScale(24),
+              borderTopRightRadius: moderateScale(24),
+              borderWidth: 1,
+              borderBottomWidth: 0,
+              borderColor: colors.cardBorderColor,
+              padding: moderateScale(24),
+              paddingBottom: moderateScale(40),
+              gap: moderateScale(16),
+            }}
+            onPress={() => {}}
+          >
+            {/* Drag handle */}
+            <View
+              style={{
+                alignSelf: "center",
+                width: moderateScale(40),
+                height: moderateScale(4),
+                borderRadius: 2,
+                backgroundColor: colors.cardBorderColor,
+                marginBottom: moderateScale(4),
+              }}
+            />
+
+            {donateSuccess ? (
+              // ── Success state ──
+              <View
+                style={{
+                  alignItems: "center",
+                  gap: moderateScale(12),
+                  paddingVertical: moderateScale(20),
+                }}
+              >
+                <MaterialCommunityIcons
+                  name="check-circle"
+                  size={moderateScale(52)}
+                  color="#2eb97b"
+                />
+                <StyledText
+                  style={{
+                    fontSize: moderateScale(16),
+                    fontWeight: "700",
+                    color: colors.textColor,
+                  }}
+                >
+                  Donation Registered!
+                </StyledText>
+                <StyledText
+                  style={{
+                    fontSize: moderateScale(13),
+                    color: colors.secondaryTextColor,
+                    textAlign: "center",
+                  }}
+                >
+                  Thank you for pledging to donate. The requester will be
+                  notified.
+                </StyledText>
+                <TouchableOpacity
+                  onPress={closeDonateModal}
+                  style={{
+                    marginTop: moderateScale(8),
+                    backgroundColor: "#2eb97b",
+                    paddingHorizontal: moderateScale(32),
+                    paddingVertical: moderateScale(10),
+                    borderRadius: moderateScale(20),
+                  }}
+                >
+                  <StyledText
+                    style={{
+                      color: "#fff",
+                      fontWeight: "700",
+                      fontSize: moderateScale(13),
+                    }}
+                  >
+                    Done
+                  </StyledText>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              // ── Form state ──
+              <>
+                <StyledText
+                  style={{
+                    fontSize: moderateScale(17),
+                    fontWeight: "700",
+                    color: colors.textColor,
+                  }}
+                >
+                  Donate Blood
+                </StyledText>
+                <StyledText
+                  style={{
+                    fontSize: moderateScale(13),
+                    color: colors.secondaryTextColor,
+                  }}
+                >
+                  Request: {request.blood_group_name} · {request.units_required}{" "}
+                  units needed
+                </StyledText>
+
+                {/* Units input */}
+                <View style={{ gap: moderateScale(6) }}>
+                  <StyledText
+                    style={{
+                      fontSize: moderateScale(12),
+                      color: colors.thirdTextColor,
+                      fontWeight: "600",
+                    }}
+                  >
+                    UNITS YOU CAN DONATE
+                  </StyledText>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      borderWidth: 1,
+                      borderColor: donateError
+                        ? "#e53935"
+                        : colors.cardBorderColor,
+                      borderRadius: moderateScale(10),
+                      backgroundColor: colors.thirdBackgroundColor,
+                      paddingHorizontal: moderateScale(14),
+                    }}
+                  >
+                    <TextInput
+                      value={units}
+                      onChangeText={(v) => {
+                        setUnits(v.replace(/[^0-9]/g, ""));
+                        setDonateError(null);
+                      }}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      style={{
+                        flex: 1,
+                        fontSize: moderateScale(16),
+                        color: colors.textColor,
+                        paddingVertical: moderateScale(12),
+                      }}
+                      placeholderTextColor={colors.secondaryTextColor}
+                      placeholder="e.g. 1"
+                    />
+                    <StyledText
+                      style={{
+                        color: colors.secondaryTextColor,
+                        fontSize: moderateScale(13),
+                      }}
+                    >
+                      unit{parseInt(units) !== 1 ? "s" : ""}
+                    </StyledText>
+                  </View>
+                  {donateError && (
+                    <StyledText
+                      style={{ fontSize: moderateScale(11), color: "#e53935" }}
+                    >
+                      {donateError}
+                    </StyledText>
+                  )}
+                </View>
+
+                {/* Action buttons */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    gap: moderateScale(10),
+                    marginTop: moderateScale(4),
+                  }}
+                >
+                  <TouchableOpacity
+                    onPress={closeDonateModal}
+                    style={{
+                      flex: 1,
+                      paddingVertical: moderateScale(12),
+                      borderRadius: moderateScale(10),
+                      borderWidth: 1,
+                      borderColor: colors.cardBorderColor,
+                      alignItems: "center",
+                    }}
+                  >
+                    <StyledText
+                      style={{
+                        color: colors.secondaryTextColor,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Cancel
+                    </StyledText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleDonate}
+                    disabled={donating}
+                    style={{
+                      flex: 2,
+                      paddingVertical: moderateScale(12),
+                      borderRadius: moderateScale(10),
+                      backgroundColor: donating
+                        ? withOpacity("#e53935", 0.5)
+                        : "#e53935",
+                      alignItems: "center",
+                      flexDirection: "row",
+                      justifyContent: "center",
+                      gap: moderateScale(8),
+                    }}
+                  >
+                    {donating && (
+                      <ActivityIndicator size="small" color="#fff" />
+                    )}
+                    <StyledText
+                      style={{
+                        color: "#fff",
+                        fontWeight: "700",
+                        fontSize: moderateScale(13),
+                      }}
+                    >
+                      {donating ? "Submitting…" : "Confirm Donation"}
+                    </StyledText>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 };

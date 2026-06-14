@@ -345,7 +345,7 @@ export default function Home() {
         keyExtractor={keyExtractor}
         contentContainerStyle={styles.listContent}
         style={{ marginBottom: moderateScale(20) }}
-        scrollEnabled={false} // outer ScrollView handles scrolling
+        // scrollEnabled={false}
         ListEmptyComponent={<EmptyState filter={selectedFilter} />}
         refreshing={refreshing}
         onRefresh={onRefresh}

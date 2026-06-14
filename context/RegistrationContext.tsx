@@ -48,7 +48,7 @@ export function RegisterProvider({ children }: { children: ReactNode }) {
 
     try {
     //   await axios.post("/user/register", payload);
-      await apiClient.post("/user/register", payload);
+      await apiClient.post("/users/register", payload);
       return true;
     } catch (err: any) {
         console.log("Reg. Error: ", err)

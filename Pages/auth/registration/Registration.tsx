@@ -1,6 +1,9 @@
 // @/Pages/auth/registration/Registration.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { View, Image, findNodeHandle } from "react-native";
+import { View, Image, findNodeHandle, Platform, Pressable } from "react-native";
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import { moderateScale, ScaledSheet } from "react-native-size-matters";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useRouter } from "expo-router";
@@ -79,6 +82,68 @@ export default function Register() {
   });
 
   const [acceptTerms, setAcceptTerms] = useState(false);
+
+  // ── Date-of-birth picker ───────────────────────────────────────────────────
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  // Android needs a two-step flow: date first, then time (date-only here so
+  // we only need one step). iOS uses the inline spinner directly.
+  const [pickerMode, setPickerMode] = useState<"date" | "time">("date");
+  const [tempDate, setTempDate] = useState<Date>(new Date(2000, 0, 1));
+
+  const formatDate = (d: Date): string => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const openDatePicker = () => {
+    console.log("[DOB] openDatePicker called");
+    const existing = registerFormData.date_of_birth
+      ? new Date(registerFormData.date_of_birth)
+      : new Date(2000, 0, 1);
+    const seed = isNaN(existing.getTime()) ? new Date(2000, 0, 1) : existing;
+    console.log("[DOB] seeding picker with:", seed.toISOString());
+    setTempDate(seed);
+    setPickerMode("date");
+    setShowDatePicker(true);
+    console.log("[DOB] showDatePicker set to true");
+  };
+
+  const onDateChange = (event: DateTimePickerEvent, selected?: Date) => {
+    console.log(
+      "[DOB] onDateChange — type:",
+      event.type,
+      "| selected:",
+      selected?.toISOString(),
+    );
+    if (Platform.OS === "android") {
+      setShowDatePicker(false);
+      if (event.type === "set" && selected) {
+        const formatted = formatDate(selected);
+        console.log("[DOB] Android confirmed:", formatted);
+        setRegisterFormData((prev) => ({ ...prev, date_of_birth: formatted }));
+      } else {
+        console.log("[DOB] Android dismissed — no change");
+      }
+    } else {
+      // iOS: spinner updates continuously; commit on Confirm press
+      if (selected) {
+        console.log("[DOB] iOS spinner tick:", selected.toISOString());
+        setTempDate(selected);
+      }
+    }
+  };
+
+  const onIOSConfirm = () => {
+    setShowDatePicker(false);
+    setRegisterFormData((prev) => ({
+      ...prev,
+      date_of_birth: formatDate(tempDate),
+    }));
+  };
+
+  const onIOSCancel = () => setShowDatePicker(false);
 
   // ── Toast state ────────────────────────────────────────────────────────────
   const [toast, setToast] = useState<{
@@ -374,38 +439,100 @@ export default function Register() {
             />
 
             {/* Date of birth */}
-            <TextInputField
-              onNativeFocusRef={scrollToInput}
-              value={registerFormData.date_of_birth}
-              setValue={setField("date_of_birth")}
-              autoCapitalize="none"
-              backgroundColor={colors.thirdBackgroundColor}
-              focusedBackgroundColor={colors.thirdBackgroundColor}
-              borderColor="transparent"
-              focusedBorderColor={colors.primaryColor}
-              inputTextColor={colors.textColor}
-              placeholderText={t(
-                "register.date_of_birth",
-                "Date of birth (YYYY-MM-DD)",
-              )}
-              placeholderColor={colors.secondaryTextColor}
-              height={44}
-              leftIcon={{
-                name: "calendar",
-                color: colors.secondaryTextColor,
-                size: 16,
+            <Pressable
+              onPress={() => {
+                console.log("[DOB] Pressable tapped");
+                openDatePicker();
               }}
-              rightIcon={{
-                name: "xmark",
-                color: colors.secondaryTextColor,
-                size: 14,
-                onPress: () => clearField("date_of_birth"),
-              }}
-              label={{
-                text: t("register.date_of_birth", "Date of birth"),
-                textColor: colors.secondaryTextColor,
-              }}
-            />
+            >
+              {/* pointerEvents="none" lets touches fall through to the Pressable
+                  instead of being consumed by the inner TextInput / its container */}
+              <View pointerEvents="none">
+                <TextInputField
+                  value={registerFormData.date_of_birth}
+                  setValue={() => {}} // read-only; picker drives the value
+                  editable={false} // prevent soft-keyboard
+                  autoCapitalize="none"
+                  backgroundColor={colors.thirdBackgroundColor}
+                  focusedBackgroundColor={colors.thirdBackgroundColor}
+                  borderColor="transparent"
+                  focusedBorderColor={colors.primaryColor}
+                  inputTextColor={
+                    registerFormData.date_of_birth
+                      ? colors.textColor
+                      : colors.secondaryTextColor
+                  }
+                  placeholderText={t("register.date_of_birth", "Date of birth")}
+                  placeholderColor={colors.secondaryTextColor}
+                  height={44}
+                  leftIcon={{
+                    name: "calendar",
+                    color: colors.secondaryTextColor,
+                    size: 16,
+                  }}
+                  rightIcon={
+                    registerFormData.date_of_birth
+                      ? {
+                          name: "xmark",
+                          color: colors.secondaryTextColor,
+                          size: 14,
+                          onPress: () => clearField("date_of_birth"),
+                        }
+                      : undefined
+                  }
+                  label={{
+                    text: t("register.date_of_birth", "Date of birth"),
+                    textColor: colors.secondaryTextColor,
+                  }}
+                />
+              </View>
+            </Pressable>
+
+            {/* ── DateTimePicker (Android: native dialog; iOS: inline spinner) ── */}
+            {showDatePicker && (
+              <>
+                <DateTimePicker
+                  value={tempDate}
+                  mode="date"
+                  display={Platform.OS === "ios" ? "spinner" : "default"}
+                  maximumDate={new Date()} // no future DOBs
+                  onChange={onDateChange}
+                  textColor={colors.textColor} // iOS only
+                />
+                {/* iOS needs explicit Confirm / Cancel buttons */}
+                {Platform.OS === "ios" && (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "flex-end",
+                      gap: moderateScale(12),
+                    }}
+                  >
+                    <Pressable onPress={onIOSCancel}>
+                      <StyledText
+                        style={{
+                          color: colors.secondaryTextColor,
+                          fontSize: moderateScale(14),
+                        }}
+                      >
+                        {t("common.cancel", "Cancel")}
+                      </StyledText>
+                    </Pressable>
+                    <Pressable onPress={onIOSConfirm}>
+                      <StyledText
+                        style={{
+                          color: colors.primaryColor,
+                          fontWeight: "bold",
+                          fontSize: moderateScale(14),
+                        }}
+                      >
+                        {t("common.confirm", "Confirm")}
+                      </StyledText>
+                    </Pressable>
+                  </View>
+                )}
+              </>
+            )}
 
             {/* Blood group */}
             <SelectDropdown
