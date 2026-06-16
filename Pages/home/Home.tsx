@@ -305,10 +305,6 @@ export default function Home() {
   const isLoading = loading.fetchAll;
   const serverError = error.server;
 
-  const renderItem = useCallback(
-    ({ item }: { item: BloodRequest }) => <BloodRequestCard request={item} />,
-    [],
-  );
 
   const keyExtractor = useCallback((item: BloodRequest) => item._id, []);
 
@@ -321,6 +317,12 @@ export default function Home() {
 
     setRefreshing(false);
   };
+
+
+  const renderItem = useCallback(
+    ({ item }: { item: BloodRequest }) => <BloodRequestCard request={item} onRefresh={onRefresh} />,
+    [],
+  );
 
   // ── Body content ───────────────────────────────────────────────────────────
   const renderBody = () => {

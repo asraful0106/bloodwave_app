@@ -30,6 +30,7 @@ import apiClient from "@/config/client";
 interface BloodRequestCardProps {
   request: BloodRequest;
   avatarUrl?: string;
+  onRefresh: VoidFunction;
 }
 
 // ─── Contact type → icon + label + action ────────────────────────────────────
@@ -389,9 +390,12 @@ const ContactModal = ({
 const BloodRequestCard = ({
   request,
   avatarUrl = "https://i.pravatar.cc/150?u=default",
+  onRefresh,
 }: BloodRequestCardProps) => {
   const { userData } = useAuth();
   const postUserData = request.user_id as BloodRequestRequester;
+  // console.log("# user: ", userData)
+  // console.log("# post user: ", postUserData);
   const { colors } = useTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -461,10 +465,19 @@ const BloodRequestCard = ({
   };
 
   const isValidRequestToDonate =
-    !userData ||
-    userData._id === postUserData._id ||
-    userData.blood_group_name === postUserData.blood_group_name;
+    (userData._id != postUserData._id &&
+      userData.blood_group_name === request.blood_group_name) ??
+    false;
 
+  // console.log(isValidRequestToDonate);
+  // console.log("Id: ", userData._id, "  ", postUserData._id);
+  // console.log(
+  //   "Blood type: ",
+  //   userData.blood_group_name,
+  //   "  ",
+  //   request.blood_group_name,
+  // );
+  // console.log(userData);
   // Donation
   const [donating, setDonating] = useState(false);
   const [donateModal, setDonateModal] = useState(false);
@@ -481,11 +494,20 @@ const BloodRequestCard = ({
     try {
       setDonating(true);
       setDonateError(null);
-      await apiClient.post("/donations", {
-        blood_request_id: request._id,
-        units: parsedUnits,
-      });
+      await apiClient.post(
+        "/donations",
+        {
+          blood_request_id: request._id,
+          units: parsedUnits,
+        },
+        {
+          headers: {
+            userId: userData._id,
+          },
+        },
+      );
       setDonateSuccess(true);
+      onRefresh();
     } catch (err: any) {
       const msg =
         err?.response?.data?.message ||
@@ -652,14 +674,14 @@ const BloodRequestCard = ({
             {/* Donate */}
             <TouchableOpacity
               style={{
-                backgroundColor: isValidRequestToDonate
+                backgroundColor: !isValidRequestToDonate
                   ? withOpacity("#e53935", 0.3)
                   : "#e53935",
                 paddingVertical: moderateScale(4),
                 paddingHorizontal: moderateScale(8),
                 borderRadius: moderateScale(6),
               }}
-              disabled={isValidRequestToDonate}
+              disabled={!isValidRequestToDonate}
               onPress={() => setDonateModal(true)}
             >
               <StyledText

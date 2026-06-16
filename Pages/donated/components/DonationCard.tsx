@@ -167,6 +167,9 @@ export default function DonationCard({
     );
   };
 
+  // console.log("avatar url: ", donation.requester.avatar_url);
+  // console.log("donation: ", donation);
+
   return (
     <TouchableOpacity
       activeOpacity={0.85}
