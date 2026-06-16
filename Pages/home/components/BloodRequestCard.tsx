@@ -465,8 +465,8 @@ const BloodRequestCard = ({
   };
 
   const isValidRequestToDonate =
-    (userData._id != postUserData._id &&
-      userData.blood_group_name === request.blood_group_name) ??
+    (userData?._id != postUserData?._id &&
+      userData?.blood_group_name === request?.blood_group_name) ??
     false;
 
   // console.log(isValidRequestToDonate);
