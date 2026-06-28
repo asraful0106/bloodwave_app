@@ -95,12 +95,12 @@ interface UserContact {
   is_public: boolean;
 }
 
-interface BloodRequest {
+export interface BloodRequest {
   id: string;
   blood_group_name: string;
   description: string;
   units_required: number;
-  units_fulfilled: number;
+  qty: number;
   urgency_level: "NORMAL" | "URGENT" | "EMERGENCY";
   patient_type: string;
   needed_by: string;
@@ -217,6 +217,31 @@ export default function Profile() {
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
+
+  // ── Load blood own blood req ────────────────────────────────────────────────────────────
+  const[bloodReq, setBloodReq] = useState<BloodRequest[] | []>([])
+
+  const loadBloodReq = useCallback(async () => {
+    try {
+      const { data } = await apiClient.get(`/blood-req/user/${userData?._id}`, {
+        headers: {
+          accessToken: accessToken,
+        },
+      });
+      // console.log("Blood req: ", data.data);
+      setBloodReq(data.data);
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Could not load user blood req.";
+    } finally {
+    }
+  }, []);
+
+  useEffect(() => {
+    loadBloodReq();
+  }, [loadBloodReq, user]);
 
   const scrollToSection = (key: TabKey) => {
     setActiveTab(key);
@@ -707,6 +732,27 @@ export default function Profile() {
             Retry
           </StyledText>
         </TouchableOpacity>
+        {/* Logout */}
+        <TouchableOpacity
+          onPress={() => {logout()}}
+          activeOpacity={0.8}
+          style={{
+            backgroundColor: "#E53935",
+            paddingHorizontal: moderateScale(28),
+            paddingVertical: moderateScale(12),
+            borderRadius: moderateScale(12),
+          }}
+        >
+          <StyledText
+            style={{
+              color: "white",
+              fontWeight: "700",
+              fontSize: moderateScale(13, 0.3),
+            }}
+          >
+            Logout
+          </StyledText>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -964,7 +1010,7 @@ export default function Profile() {
           }}
         >
           <MyBloodRequestsSection
-            requests={[] /* NEED_API: populate from /blood-requests endpoint */}
+            requests={bloodReq /* NEED_API: populate from /blood-requests endpoint */}
             onStatusChange={handleBloodRequestStatusChange}
             colors={colors}
           />
