@@ -382,6 +382,7 @@ const EligibilityBanner = ({
         marginBottom: moderateScale(16),
         borderWidth: 1,
         borderColor: colors.cardBorderColor,
+        marginTop:moderateScale(10, 0.1)
       }}
     >
       <View
@@ -718,6 +719,15 @@ export default function MyDonations() {
     fetchDonations();
   }, [fetchDonations]);
 
+  // Refresh controll
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    fetchDonations();
+
+    setRefreshing(false);
+  };
+
   // ── Optimistic update helper ─────────────────────────────────────────────
   const updateDonationInState = useCallback(
     (id: string, patch: Partial<Donation>) => {
@@ -997,6 +1007,8 @@ export default function MyDonations() {
         ListEmptyComponent={<EmptyState colors={colors} />}
         contentContainerStyle={{ paddingBottom: moderateScale(40) }}
         showsVerticalScrollIndicator={false}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
       />
     </View>
   );
