@@ -97,6 +97,7 @@ interface UserContact {
 
 export interface BloodRequest {
   id: string;
+  _id?: string;
   blood_group_name: string;
   description: string;
   units_required: number;
@@ -189,6 +190,7 @@ export default function Profile() {
     account: 0,
   });
 
+
   // ── Load profile ────────────────────────────────────────────────────────────
 
   const loadProfile = useCallback(async () => {
@@ -219,7 +221,7 @@ export default function Profile() {
   }, [loadProfile]);
 
   // ── Load blood own blood req ────────────────────────────────────────────────────────────
-  const[bloodReq, setBloodReq] = useState<BloodRequest[] | []>([])
+  const [bloodReq, setBloodReq] = useState<BloodRequest[] | []>([]);
 
   const loadBloodReq = useCallback(async () => {
     try {
@@ -734,7 +736,9 @@ export default function Profile() {
         </TouchableOpacity>
         {/* Logout */}
         <TouchableOpacity
-          onPress={() => {logout()}}
+          onPress={() => {
+            logout();
+          }}
           activeOpacity={0.8}
           style={{
             backgroundColor: "#E53935",
@@ -1010,9 +1014,17 @@ export default function Profile() {
           }}
         >
           <MyBloodRequestsSection
-            requests={bloodReq /* NEED_API: populate from /blood-requests endpoint */}
+            requests={
+              bloodReq /* NEED_API: populate from /blood-requests endpoint */
+            }
             onStatusChange={handleBloodRequestStatusChange}
             colors={colors}
+            onRefreah={() => {
+              loadBloodReq();
+            }}
+            onDelete={() => {
+              loadBloodReq();
+            }}
           />
         </View>
 

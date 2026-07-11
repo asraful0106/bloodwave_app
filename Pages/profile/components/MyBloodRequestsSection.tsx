@@ -17,13 +17,14 @@
 import { StyledText } from "@/components/StyledText";
 import { ThemeColors } from "@/constants/themeCollorConstant";
 import { withOpacity } from "@/helpers/withOpacity";
-import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { EvilIcons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 import { BloodRequest } from "../Profile";
+import { useBloodRequest } from "@/context/BloodReqContext";
 
 type RequestStatus = "OPEN" | "FULFILLED" | "CANCELLED" | "EXPIRED";
 type UrgencyLevel = "NORMAL" | "URGENT" | "EMERGENCY";
@@ -32,6 +33,8 @@ interface MyBloodRequestsSectionProps {
   requests: BloodRequest[];
   onStatusChange: (id: string, status: RequestStatus) => void;
   colors: ThemeColors;
+  onRefreah: () => void;
+  onDelete: () => void;
 }
 
 type FilterTab = "ALL" | RequestStatus;
@@ -73,7 +76,11 @@ export const MyBloodRequestsSection = ({
   requests,
   onStatusChange,
   colors,
+  onRefreah,
+  onDelete,
 }: MyBloodRequestsSectionProps) => {
+  // Blood req
+  const { deleteRequest } = useBloodRequest();
   // console.log("req from c: ", requests)
   const router = useRouter();
   const [localRequests, setLocalRequests] = useState(requests);
@@ -88,7 +95,7 @@ export const MyBloodRequestsSection = ({
       ? localRequests
       : localRequests.filter((r) => r.status === activeFilter);
 
-  console.log("0", requests);
+  // console.log("0", requests);
   // console.log("1", localRequests);
   // console.log("2", filtered);
 
@@ -204,31 +211,57 @@ export const MyBloodRequestsSection = ({
             My Blood Requests
           </StyledText>
         </View>
-        <TouchableOpacity
-          onPress={() =>
-            router.push({ pathname: "/(othersPage)/requestBlood" })
-          }
+        <View
           style={{
             flexDirection: "row",
             alignItems: "center",
             gap: moderateScale(4),
-            backgroundColor: withOpacity("#E53935", 0.1),
-            borderRadius: moderateScale(8),
-            paddingHorizontal: moderateScale(9),
-            paddingVertical: moderateScale(4),
           }}
         >
-          <Feather name="plus" size={moderateScale(12)} color="#E53935" />
-          <StyledText
+          <TouchableOpacity
+            onPress={() => onRefreah()}
             style={{
-              color: "#E53935",
-              fontWeight: "600",
-              fontSize: moderateScale(11, 0.3),
+              flexDirection: "row",
+              alignItems: "center",
+              gap: moderateScale(4),
+              backgroundColor: withOpacity("#35e552", 0.1),
+              borderRadius: moderateScale(8),
+              paddingHorizontal: moderateScale(9),
+              paddingVertical: moderateScale(4),
             }}
           >
-            New
-          </StyledText>
-        </TouchableOpacity>
+            <EvilIcons
+              name="refresh"
+              size={moderateScale(12, 0.01)}
+              color="#35e552"
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() =>
+              router.push({ pathname: "/(othersPage)/requestBlood" })
+            }
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: moderateScale(4),
+              backgroundColor: withOpacity("#E53935", 0.1),
+              borderRadius: moderateScale(8),
+              paddingHorizontal: moderateScale(9),
+              paddingVertical: moderateScale(4),
+            }}
+          >
+            <Feather name="plus" size={moderateScale(12)} color="#E53935" />
+            <StyledText
+              style={{
+                color: "#E53935",
+                fontWeight: "600",
+                fontSize: moderateScale(11, 0.3),
+              }}
+            >
+              New
+            </StyledText>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Filter tabs */}
@@ -238,7 +271,7 @@ export const MyBloodRequestsSection = ({
         style={{ marginBottom: moderateScale(14) }}
       >
         <View style={{ flexDirection: "row", gap: moderateScale(6) }}>
-          {FILTER_TABS.map((tab) => {
+          {FILTER_TABS.map((tab, index) => {
             const cnt =
               tab.key === "ALL"
                 ? localRequests.length
@@ -246,7 +279,7 @@ export const MyBloodRequestsSection = ({
             const isActive = activeFilter === tab.key;
             return (
               <TouchableOpacity
-                key={tab.key}
+                key={`${tab.key}-${index}`}
                 onPress={() => setActiveFilter(tab.key)}
                 activeOpacity={0.75}
                 style={{
@@ -327,7 +360,7 @@ export const MyBloodRequestsSection = ({
       )}
 
       {/* Request cards */}
-      {filtered.map((req) => {
+      {filtered.map((req, index) => {
         const cfg = STATUS_CFG[req.status] ?? {
           color: "#9E9E9E",
           label: req.status ?? "Unknown",
@@ -344,10 +377,9 @@ export const MyBloodRequestsSection = ({
           isDeadlinePast(req.needed_by) && req.status === "OPEN";
 
         return (
-          <TouchableOpacity
-            key={req.id}
-            onPress={() => setExpandedId(isExpanded ? null : req.id)}
-            activeOpacity={0.85}
+          // Each blood req
+          <View
+            key={`${req.id}-${index}`}
             style={{
               borderRadius: moderateScale(12),
               borderWidth: 1,
@@ -434,6 +466,7 @@ export const MyBloodRequestsSection = ({
                       {req.blood_group_name}
                     </StyledText>
                   </View>
+                  {/* Tag number*/}
                   <View
                     style={{
                       backgroundColor: withOpacity(urg.color, 0.1),
@@ -453,31 +486,77 @@ export const MyBloodRequestsSection = ({
                     </StyledText>
                   </View>
                 </View>
+                {/* Right Part */}
                 <View
                   style={{
                     flexDirection: "row",
                     alignItems: "center",
-                    gap: moderateScale(4),
-                    backgroundColor: withOpacity(cfg.color, 0.1),
-                    borderRadius: moderateScale(8),
-                    paddingHorizontal: moderateScale(7),
-                    paddingVertical: moderateScale(2),
+                    gap: moderateScale(6),
                   }}
                 >
-                  <Feather
-                    name={cfg.icon as any}
-                    size={moderateScale(10)}
-                    color={cfg.color}
-                  />
-                  <StyledText
+                  {/* Delete button */}
+                  <TouchableOpacity
+                    onPress={() => {
+                      Alert.alert(
+                        "Delete Blood Request!",
+                        "Are you sure you want to delete the blood request?",
+                        [
+                          {
+                            text: "Cancel",
+                            onPress: () => console.log("Cancel pressed"),
+                            style: "cancel",
+                          },
+                          {
+                            text: "Confirm",
+                            onPress: () => {
+                              // console.log(req)
+                              deleteRequest(req._id as string);
+                              onDelete();
+                            },
+                          },
+                        ],
+                        {
+                          cancelable: true, // Android: allow dismissing by tapping outside/back button
+                          onDismiss: () => console.log("Alert dismissed"),
+                        },
+                      );
+                    }}
+                    hitSlop={10}
+                  >
+                    <Feather
+                      name="trash-2"
+                      size={moderateScale(8)}
+                      color="#E53935"
+                    />
+                  </TouchableOpacity>
+                  {/* Lable */}
+
+                  <View
                     style={{
-                      color: cfg.color,
-                      fontSize: moderateScale(9, 0.3),
-                      fontWeight: "600",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: moderateScale(4),
+                      backgroundColor: withOpacity(cfg.color, 0.1),
+                      borderRadius: moderateScale(8),
+                      paddingHorizontal: moderateScale(7),
+                      paddingVertical: moderateScale(2),
                     }}
                   >
-                    {cfg.label}
-                  </StyledText>
+                    <Feather
+                      name={cfg.icon as any}
+                      size={moderateScale(10)}
+                      color={cfg.color}
+                    />
+                    <StyledText
+                      style={{
+                        color: cfg.color,
+                        fontSize: moderateScale(9, 0.3),
+                        fontWeight: "600",
+                      }}
+                    >
+                      {cfg.label}
+                    </StyledText>
+                  </View>
                 </View>
               </View>
 
@@ -846,14 +925,19 @@ export const MyBloodRequestsSection = ({
               <View
                 style={{ alignItems: "center", marginTop: moderateScale(5) }}
               >
-                <Feather
-                  name={isExpanded ? "chevron-up" : "chevron-down"}
-                  size={moderateScale(14)}
-                  color={colors.thirdTextColor}
-                />
+                <TouchableOpacity
+                  onPress={() => setExpandedId(isExpanded ? null : req.id)}
+                  activeOpacity={0.85}
+                >
+                  <Feather
+                    name={isExpanded ? "chevron-up" : "chevron-down"}
+                    size={moderateScale(14)}
+                    color={colors.thirdTextColor}
+                  />
+                </TouchableOpacity>
               </View>
             </View>
-          </TouchableOpacity>
+          </View>
         );
       })}
     </View>

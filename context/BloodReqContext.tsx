@@ -328,11 +328,14 @@ export function BloodRequestProvider({ children }: { children: ReactNode }) {
   const deleteRequest = useCallback(async (id: string): Promise<boolean> => {
     dispatch({ type: "SET_LOADING", key: "remove", value: true });
     dispatch({ type: "CLEAR_ERRORS" });
+    // console.log("Deleting Blood Req....");
+    // console.log("Blood Req Id: ", id);
     try {
       await apiClient.delete(`/blood-req/${id}`);
       dispatch({ type: "REMOVE", id });
       return true;
     } catch (error) {
+      // console.log("Error on deleting blood req: ", error)
       const { message } = parseError(error);
       dispatch({ type: "SET_SERVER_ERROR", message });
       return false;
